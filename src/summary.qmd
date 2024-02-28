@@ -1,0 +1,5 @@
+# Summary {.unnumbered}
+
+In summary, this book has no content whatsoever.
+
+See @knuth84 for additional discussion of literate programming.

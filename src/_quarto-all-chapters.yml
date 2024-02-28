@@ -35,6 +35,7 @@ book:
         - content/parallel-hybrid.qmd
         - content/parallel-case-studies.qmd
 
+    - summary.qmd
     - references.qmd
 
 toc: true

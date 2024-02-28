@@ -24,6 +24,7 @@ execute:
   echo: true
   output: true
   warning: true
+  freeze: auto
 
 number-sections: true
 tbl-cap-location: bottom

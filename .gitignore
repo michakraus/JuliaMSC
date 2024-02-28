@@ -3,6 +3,7 @@
 .vscode
 _book
 _chapters
+_site
 build
 packt
 Manifest.toml
