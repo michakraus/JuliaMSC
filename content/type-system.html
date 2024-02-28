@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-99.9.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Modern Scientific Computing with Julia – 2&nbsp; Julia’s Type System</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../content/methods-multiple-dispatch.html" rel="next">
+<link href="../content/julia-language.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/quarto-contrib/ansicolors/ansicolor.css" rel="stylesheet">
+<link href="../site_libs/quarto-contrib/juliamonofont/juliamono.css" rel="stylesheet">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../resources/jsc.css">
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../content/part1.html">Part 1: Programming in Julia</a></li><li class="breadcrumb-item"><a href="../content/type-system.html"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Julia’s Type System</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">Modern Scientific Computing with Julia</a> 
+        <div class="sidebar-tools-main">
+    <a href="https://github.com/michakraus/JuliaMSC" title="Source Code" class="quarto-navigation-tool px-1" aria-label="Source Code"><i class="bi bi-github"></i></a>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../about.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">About</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Preface</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="../content/part1.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Part 1: Programming in Julia</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/julia-language.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basics of the Julia Language</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/type-system.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Julia’s Type System</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/methods-multiple-dispatch.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Methods &amp; Multiple Dispatch</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/arrays.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Working with Arrays</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/design-patterns.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Design Patterns</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="../content/part2.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Part 2: Research Software Engineering</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/package-development.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Package Development</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/git-and-github.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Git and GitHub</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/software-sustainability.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Software Sustainability</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/test-driven-development.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Test Driven Development</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/performance-and-introspection.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Performance &amp; Introspection</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="../content/part3.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Part 3: Useful Libraries and Solutions to Common Problems</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/data.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Working with Data</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/differentiable-programming.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Differentiable Programming</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/linear-and-nonlinear-equations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Linear and Nonlinear Equations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/differential-equations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Differential Equations</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/machine-learning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Machine Learning</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="../content/part4.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Part 4: Parallel and GPU Programming</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/parallel-programming.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Parallel Programming Paradigms</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/parallel-arrays.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Parallel Arrays</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/parallel-gpu.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">GPU Programming</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/parallel-hybrid.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Hybrid Parallel Programming</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../content/parallel-case-studies.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Case Studies</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../summary.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Summary</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#types-variables-and-values" id="toc-types-variables-and-values" class="nav-link active" data-scroll-target="#types-variables-and-values"><span class="header-section-number">2.1</span> Types, variables, and values</a></li>
+  <li><a href="#type-systems" id="toc-type-systems" class="nav-link" data-scroll-target="#type-systems"><span class="header-section-number">2.2</span> Type systems</a>
+  <ul class="collapse">
+  <li><a href="#static-vs.-dynamic-type-systems" id="toc-static-vs.-dynamic-type-systems" class="nav-link" data-scroll-target="#static-vs.-dynamic-type-systems"><span class="header-section-number">2.2.1</span> Static vs.&nbsp;dynamic type systems</a></li>
+  <li><a href="#explicit-vs.-implicit-type-systems" id="toc-explicit-vs.-implicit-type-systems" class="nav-link" data-scroll-target="#explicit-vs.-implicit-type-systems"><span class="header-section-number">2.2.2</span> Explicit vs.&nbsp;implicit type systems</a></li>
+  <li><a href="#strong-vs.-weak-type-systems" id="toc-strong-vs.-weak-type-systems" class="nav-link" data-scroll-target="#strong-vs.-weak-type-systems"><span class="header-section-number">2.2.3</span> Strong vs.&nbsp;weak type systems</a></li>
+  <li><a href="#nominal-vs.-structural-type-systems" id="toc-nominal-vs.-structural-type-systems" class="nav-link" data-scroll-target="#nominal-vs.-structural-type-systems"><span class="header-section-number">2.2.4</span> Nominal vs.&nbsp;structural type systems</a></li>
+  <li><a href="#julias-type-system" id="toc-julias-type-system" class="nav-link" data-scroll-target="#julias-type-system"><span class="header-section-number">2.2.5</span> Julia’s type system</a></li>
+  </ul></li>
+  <li><a href="#working-with-types" id="toc-working-with-types" class="nav-link" data-scroll-target="#working-with-types"><span class="header-section-number">2.3</span> Working with types</a></li>
+  <li><a href="#different-kinds-of-types" id="toc-different-kinds-of-types" class="nav-link" data-scroll-target="#different-kinds-of-types"><span class="header-section-number">2.4</span> Different kinds of types</a>
+  <ul class="collapse">
+  <li><a href="#abstract-types" id="toc-abstract-types" class="nav-link" data-scroll-target="#abstract-types"><span class="header-section-number">2.4.1</span> Abstract types</a></li>
+  <li><a href="#primitive-types" id="toc-primitive-types" class="nav-link" data-scroll-target="#primitive-types"><span class="header-section-number">2.4.2</span> Primitive types</a></li>
+  <li><a href="#composite-types" id="toc-composite-types" class="nav-link" data-scroll-target="#composite-types"><span class="header-section-number">2.4.3</span> Composite types</a></li>
+  <li><a href="#immutability" id="toc-immutability" class="nav-link" data-scroll-target="#immutability"><span class="header-section-number">2.4.4</span> Immutability</a></li>
+  <li><a href="#mutable-composite-types" id="toc-mutable-composite-types" class="nav-link" data-scroll-target="#mutable-composite-types"><span class="header-section-number">2.4.5</span> Mutable composite types</a></li>
+  <li><a href="#singletons" id="toc-singletons" class="nav-link" data-scroll-target="#singletons"><span class="header-section-number">2.4.6</span> Singletons</a></li>
+  <li><a href="#type-aliases" id="toc-type-aliases" class="nav-link" data-scroll-target="#type-aliases"><span class="header-section-number">2.4.7</span> Type aliases</a></li>
+  </ul></li>
+  <li><a href="#parametric-types" id="toc-parametric-types" class="nav-link" data-scroll-target="#parametric-types"><span class="header-section-number">2.5</span> Parametric types</a>
+  <ul class="collapse">
+  <li><a href="#parametric-composite-types" id="toc-parametric-composite-types" class="nav-link" data-scroll-target="#parametric-composite-types"><span class="header-section-number">2.5.1</span> Parametric composite types</a></li>
+  <li><a href="#parametric-abstract-types" id="toc-parametric-abstract-types" class="nav-link" data-scroll-target="#parametric-abstract-types"><span class="header-section-number">2.5.2</span> Parametric abstract types</a></li>
+  <li><a href="#parametric-primitive-types" id="toc-parametric-primitive-types" class="nav-link" data-scroll-target="#parametric-primitive-types"><span class="header-section-number">2.5.3</span> Parametric primitive types</a></li>
+  </ul></li>
+  <li><a href="#type-set-theory" id="toc-type-set-theory" class="nav-link" data-scroll-target="#type-set-theory"><span class="header-section-number">2.6</span> Type set theory</a></li>
+  <li><a href="#unionall-types" id="toc-unionall-types" class="nav-link" data-scroll-target="#unionall-types"><span class="header-section-number">2.7</span> UnionAll types</a></li>
+  <li><a href="#type-unions" id="toc-type-unions" class="nav-link" data-scroll-target="#type-unions"><span class="header-section-number">2.8</span> Type unions</a></li>
+  <li><a href="#type-introspection" id="toc-type-introspection" class="nav-link" data-scroll-target="#type-introspection"><span class="header-section-number">2.9</span> Type introspection</a></li>
+  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary"><span class="header-section-number">2.10</span> Summary</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../content/part1.html">Part 1: Programming in Julia</a></li><li class="breadcrumb-item"><a href="../content/type-system.html"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Julia’s Type System</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span id="sec:type-system" class="quarto-section-identifier"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Julia’s Type System</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Julia’s type system, together with its use of the multiple dispatch paradigm (explained in the next chapter), is one of the outstanding features of Julia, making it a powerful and expressive programming language. In this chapter, we will discuss all important aspects of types and working with types in Julia. After acquiring basic knowledge about type systems in general and the characteristics of Julia’s type system in particular, we will discuss the different kinds of types Julia provides (abstract, concrete, primitive, parametric), how they are defined, how they interact and relate to each other, and how to use them effectively and efficiently. We will cover the following topics:</p>
+<ul>
+<li>Types, variables, and values</li>
+<li>Type systems</li>
+<li>Working with types</li>
+<li>Different types of types</li>
+<li>Parametric types</li>
+<li>Type set theory</li>
+<li>UnionAll types</li>
+<li>Type unions</li>
+<li>Type introspection</li>
+</ul>
+<p>Before we can dive into the specifics of Julia’s type system, we first need to agree on some terminology that is, unfortunately, used differently in the context of different programming languages.</p>
+<section id="types-variables-and-values" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="types-variables-and-values"><span class="header-section-number">2.1</span> Types, variables, and values</h2>
+<p>Programming languages such as C++ distinguish between types, objects, values, variables, references, and pointers (see e.g.&nbsp;Bjarne Stroustrop’s definitions of these terms in <span class="PItalics" data-custom-style="PItalics">The C++ Programming Language</span> or <span class="PItalics" data-custom-style="PItalics">A Tour of C++</span>). Unfortunately, these terms are not used consistently across different programming languages. Moreover, Julia only discriminates between types, values, and variables. It is essential to define and clarify the meaning and understand the difference and interplay between these concepts.</p>
+<p>A <span class="PKeyword" data-custom-style="PKeyword">type</span> specifies what kind of data an object represents, e.g., a number, a string, some data collection, or a function. Types provide important information to the computer, e.g., how much memory is needed to create an object and how to access it.</p>
+<p>A <span class="PKeyword" data-custom-style="PKeyword">value</span> is some entity in memory representing a certain kind of data. A <span class="PKeyword" data-custom-style="PKeyword">variable</span> is a name used to access a value. It can be thought of as a reference to a location in memory.</p>
+<p>A value can be assigned to several variables or no variable at all. A variable can at most refer to one value. It can also be left uninitialized and thus not refer to any value.</p>
+<p>A value always has a fixed, well-defined type. In Julia, variables do not have types; they are just names that refer to values. However, Julia allows to restrict the type of values that can be assigned to a variable.</p>
+<p><span class="PKeyword" data-custom-style="PKeyword">Variable declaration</span> refers to the process of specifying an identifier, and <span class="PKeyword" data-custom-style="PKeyword">variable assignment</span> refers to determining which value a variable should refer to. While many programming languages require these to be separate processes, Julia considers the assignment of a value to a nonexisting variable as the implicit declaration of that variable. Nonetheless, declaring a variable without assigning a value is also possible using the <code>global</code> and <code>local</code> keywords, e.g.,</p>
+<div id="328966a8" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">global</span> x</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>The details of global and local variables will be discussed in the section on variable scopes.</p>
+</section>
+<section id="type-systems" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="type-systems"><span class="header-section-number">2.2</span> Type systems</h2>
+<p>Every programming language has a system of <span class="PKeyword" data-custom-style="PKeyword">type checking</span>, which is the process of verifying and enforcing type constraints. This system ensures that only values of the correct types are used at each step of a program thus minimizing errors during execution. It is important to understand the differences between dynamic and static type systems, explicit and implicit type systems, as well as strong and weak type systems. These terms are used to characterize how a programming language handles data types, which significantly impacts how to write, test, and maintain code.</p>
+<p>Unfortunately, these concepts are often confounded and falsely identified. Static typing is often mistaken as explicit typing and dynamic typing as implicit typing. Similarly, static type systems are often equated with compiled languages and dynamic type systems with interpreted languages. However, these are all different concepts that need to be considered separately. Both static and dynamic type systems can be implicit or explicit, and both compiled or interpreted languages can be statically or dynamically typed.</p>
+<p>In the following, we try to clarify each of these terms before classifying Julia’s type system in terms of these concepts.</p>
+<section id="static-vs.-dynamic-type-systems" class="level3" data-number="2.2.1">
+<h3 data-number="2.2.1" class="anchored" data-anchor-id="static-vs.-dynamic-type-systems"><span class="header-section-number">2.2.1</span> Static vs.&nbsp;dynamic type systems</h3>
+<p>With <span class="PKeyword" data-custom-style="PKeyword">static type systems</span>, the type of every expression must be computable without executing the program, providing a limited form of program verification. With <span class="PKeyword" data-custom-style="PKeyword">dynamic type systems</span>, fewer such a priori checks can be performed as type information on all the values manipulated by the program is available only at runtime. Therefore dynamically typed languages are prone to certain runtime errors that can be detected only by static type checking. Typically this amounts to an operation being applied to a value with a type not supported by the operation. Such problems can be quite a challenge to debug. An inapplicable operation may occur long after the original programming mistake that caused the value to have the wrong type. Therefore programming practices such as unit testing and test-driven development are particularly important with dynamically typed languages.</p>
+<p>In dynamically type-checked languages, some kind of <span class="PKeyword" data-custom-style="PKeyword">runtime type information (RTTI)</span> containing a reference to the appropriate type is attached to each value. As this information has to be retrieved repeatedly at every execution of the program, languages with dynamic type systems often involve higher computational costs and memory demands than languages with static type systems. Moreover, the lack of type information at compile time often does not allow for the level of optimization possible with statically type-checked languages. The latter can produce optimized machine code that is stripped of type checks, as those have already been performed ahead of runtime and do not need to store any runtime type information.</p>
+<p>Most classical programming languages are either statically typed or dynamically typed. However, some languages allow parts of a program to be statically typed, with other parts dynamically typed. This is referred to as <span class="PKeyword" data-custom-style="PKeyword">gradual typing</span>.</p>
+</section>
+<section id="explicit-vs.-implicit-type-systems" class="level3" data-number="2.2.2">
+<h3 data-number="2.2.2" class="anchored" data-anchor-id="explicit-vs.-implicit-type-systems"><span class="header-section-number">2.2.2</span> Explicit vs.&nbsp;implicit type systems</h3>
+<p>With explicit type systems, the programmer must manually declare the type of each variable. Implicit type systems use type inference to deduce the type of values, thus obviating the need to declare them explicitly. In explicit typing, types are associated with variables, not values. In implicit typing, types are associated with values, not variables. Many languages that support implicit typing also allow for explicit typing where needed.</p>
+</section>
+<section id="strong-vs.-weak-type-systems" class="level3" data-number="2.2.3">
+<h3 data-number="2.2.3" class="anchored" data-anchor-id="strong-vs.-weak-type-systems"><span class="header-section-number">2.2.3</span> Strong vs.&nbsp;weak type systems</h3>
+<p>The concepts of <span class="PKeyword" data-custom-style="PKeyword">strongly</span> vs.&nbsp;<span class="PKeyword" data-custom-style="PKeyword">weakly typed</span> languages are not as well-defined as those discussed above. Typically, strong typing refers to languages that enforce typing rules strongly, meaning they do not allow any automatic type conversions at all or only such conversions that do not lose information. If lossy type conversions are allowed, the language is referred to as weakly typed.</p>
+</section>
+<section id="nominal-vs.-structural-type-systems" class="level3" data-number="2.2.4">
+<h3 data-number="2.2.4" class="anchored" data-anchor-id="nominal-vs.-structural-type-systems"><span class="header-section-number">2.2.4</span> Nominal vs.&nbsp;structural type systems</h3>
+<p><span class="PKeyword" data-custom-style="PKeyword">Nominal</span> (or <span class="PKeyword" data-custom-style="PKeyword">nominative</span>) means name-based. In nominal type systems, the equivalence of data types and the hierarchical relationships between types are established by the names of the types and explicit declarations. Two values are considered type-compatible if and only if they are of the same type, and a type is considered a subtype of another type only if this is explicitly declared.</p>
+<p><span class="PKeyword" data-custom-style="PKeyword">Structural</span> means property-based. In structural type systems, the equivalence of data types and the hierarchical relationships between types are established by the structure of the types instead of their names. Two values are considered type-compatible if all their properties are matching. For example, two structs are considered equivalent if they have the same number and kind of fields, even if they are defined independently as separate types. If one type has all the properties of another type, but not vice versa, the first type is considered a subtype of the second. For example, if type A is a struct with three fields, and type B is a struct with five fields, where the types of the first three fields match those of the fields in type A, then type B is considered a subtype of type A.</p>
+</section>
+<section id="julias-type-system" class="level3" data-number="2.2.5">
+<h3 data-number="2.2.5" class="anchored" data-anchor-id="julias-type-system"><span class="header-section-number">2.2.5</span> Julia’s type system</h3>
+<p>In terms of the concepts defined above, Julia’s type system is dynamic, implicit, strong and nominal. Moreover, Julia’s type system is <span class="PKeyword" data-custom-style="PKeyword">parametric</span>, meaning that types can be parameterized by other types, symbols, numbers, bools, or tuples.</p>
+<p>Like in most other dynamically typed languages, methods in Julia are polymorphic by default. This means methods will accept values of any type unless their argument types are restricted. Such type restrictions can be used to assure code correctness, e.g., to avoid a method being applied to some type that is not supported by all the operations in the method. More importantly, it facilitates method dispatch on the types of function arguments. This aspect will be discussed in detail in the next chapter.</p>
+<p>Julia encourages writing generic code, which means applying as few type restrictions as necessary to guarantee the ability of a method to operate correctly on its input data or to dispatch between different methods of a function.</p>
+<p>Julia distinguishes between <span class="PKeyword" data-custom-style="PKeyword">abstract types</span> and <span class="PKeyword" data-custom-style="PKeyword">concrete types</span>. The difference is that concrete types can be instantiated while abstract types cannot. Subtypes can only be derived from abstract types. Concrete types are final and cannot serve as supertypes. This may seem restrictive and somewhat unusual to someone with a background in traditional <span class="PKeyword" data-custom-style="PKeyword">class-based object-oriented (CBOO)</span> languages like Python or C++. However, it offers many advantages with only minor disadvantages. While in CBOO languages, structure as well as behavior are inherited from supertypes to subtypes, in Julia only behavior is inherited, and composition is embraced over the inheritance of structure. This avoids various limitations of CBOO languages and often leads to cleaner code that is easier to understand and has a more transparent structure. Admittedly, appreciating the Julian way of programming requires some adjustment of thinking and rewiring of the object-oriented programmer’s brain, but it is well worth the effort, especially in the realms of scientific computing.</p>
+<p>Julia does not distinguish between object and non-object values, but all values are proper objects with a type, and all types are equally first-class members of Julia’s type graph.</p>
+<div data-custom-style="PCallout">
+<p>In particular, there is no distinction between primitive types and composite types like in C++ or Java, where instances of the former are referred to as <em>variables</em> and instances of the latter as <em>objects</em>, and both are not created equal, one with the <code>new</code> keyword and one without. In Julia, all values are objects. Therefore Julia does not make a distinction between <em>variables</em> and <em>references</em>.</p>
+</div>
+<p>After this short excursion into type set theory that allowed us to perform a basic characterization of Julia’s type system, we will now learn how to make use of types in practice.</p>
+</section>
+</section>
+<section id="working-with-types" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="working-with-types"><span class="header-section-number">2.3</span> Working with types</h2>
+<p>Julia does not require to specify the type of a value associated with some variable; thus by default values that are assigned to variables can be of any type. A lot of useful Julia code can be written without ever worrying about types. Still, sometimes restricting types is required, e.g., to utilize Julia’s multiple-dispatch mechanism or to aid the compiler in producing performant code. Other good reasons for explicitly specifying or restricting types include increasing expressiveness, improving code readability, catching programmer errors, and confirming that a program works correctly, thus ultimately increasing robustness. Typically, it is a good idea to start by writing general code that restricts types as little as possible or not at all and then gradually introduce type annotations where necessary.</p>
+<p>To annotate types, Julia provides the <code>::</code> operator, which is followed by a type, e.g.,</p>
+<div id="b16bbd98" class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">global</span> x<span class="op">::</span><span class="dt">Float64</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This forces the value referenced by <code>x</code> to be of type <code>Float64</code>. If the variable is assigned a value of a different type, Julia uses the <code>convert</code> command to perform an appropriate type conversion:</p>
+<div id="4b65b6b7" class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> <span class="fl">1</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>x</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="5">
+<pre class=""><code class=" ansi">1.0</code></pre>
+</div>
+</div>
+<p>The inner workings of this mechanism will be described in <span class="PItalics" data-custom-style="PItalics">Chapters 5</span>.</p>
+<div data-custom-style="PCallout">
+<p>Type annotations for global variables as above are only supported since Julia v1.8.</p>
+</div>
+<p>If a concrete type is specified, the value must be an instance of this very type. If an abstract type is specified, it suffices for the value to be an instance of any subtype of that type, e.g.,</p>
+<div id="ed109051" class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>y<span class="op">::</span><span class="dt">Real </span><span class="op">=</span> <span class="fl">1.0</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="6">
+<pre class=""><code class=" ansi">1.0</code></pre>
+</div>
+</div>
+<p>The type of <code>y</code> is <code>Float64</code>, as is verified by the <code>typeof</code> function:</p>
+<div id="73ca707c" class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">typeof</span>(y)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="7">
+<pre class=""><code class=" ansi">Float64</code></pre>
+</div>
+</div>
+<p>The <code>isa</code> function confirms that the type of the value referenced by <code>y</code> is indeed a subtype of <code>Real</code>:</p>
+<div id="7a1ecef2" class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">isa</span>(y, <span class="dt">Real</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<p>If an automatic conversion is not possible, an error is thrown:</p>
+<div id="86dae83c" class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>z<span class="op">::</span><span class="dt">Int64 </span><span class="op">=</span> <span class="fl">1.5</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: InexactError: Int64(1.5)</code></pre>
+</div>
+</div>
+<p>Note, however, that the following assignment works without problems:</p>
+<div id="eeeafeac" class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>z<span class="op">::</span><span class="dt">Int64 </span><span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>z</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre class=""><code class=" ansi">1</code></pre>
+</div>
+</div>
+<p>The value <code>1.0</code> can be truncated to an integer value without any loss of information.</p>
+<div data-custom-style="PCallout">
+<p>When the <code>::</code> operator is appended to a variable on the left-hand side of an assignment or as part of a global or local declaration, it restricts the variable to always refer to a value of the specified type, very much like a type declaration in an explicitly-typed language such as C. This feature helps avoid type unstable code that could occur if an assignment to a variable changes its type unexpectedly, which would be detrimental to performance.</p>
+</div>
+<p>Type declarations can not only be attached to variable declarations but also to method definitions. In the following example, the return type of <code>relu</code> is declared to be <code>Float64</code>:</p>
+<div id="a69a9eda" class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">relu</span>(x)<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> x <span class="op">≤</span> <span class="fl">0</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="fl">0</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> x</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="11">
+<pre class=""><code class=" ansi">relu (generic function with 1 method)</code></pre>
+</div>
+</div>
+<p>This enforces that the returned value is always converted to <code>Float64</code>:</p>
+<div id="3aab48f7" class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">relu</span>(<span class="fl">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<pre class=""><code class=" ansi">1.0</code></pre>
+</div>
+</div>
+<div id="379c11bf" class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">typeof</span>(<span class="fu">relu</span>(<span class="fl">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<pre class=""><code class=" ansi">Float64</code></pre>
+</div>
+</div>
+<p>In Julia, every expression returns a value, every function, and also every assignment. For example, the following assignment returns the value <code>3</code>:</p>
+<div id="d75413b1" class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>z <span class="op">=</span> <span class="fl">3</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="14">
+<pre class=""><code class=" ansi">3</code></pre>
+</div>
+</div>
+<p>This implies that every expression is associated with a return type. When the <code>::</code> operator is appended to an expression, its return value is asserted as an instance of the subsequent type. If the type assertion fails, an exception is thrown:</p>
+<div id="5ce007c4" class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>(<span class="fl">1</span><span class="op">+</span><span class="fl">2</span>)<span class="op">::</span><span class="dt">Float64</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: TypeError: in typeassert, expected Float64, got a value of type Int64</code></pre>
+</div>
+</div>
+<p>If the assertion passes, the value of the expression on the left is returned:</p>
+<div id="8cdf09c7" class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>(<span class="fl">1</span><span class="op">+</span><span class="fl">2</span>)<span class="op">::</span><span class="dt">Int64</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="16">
+<pre class=""><code class=" ansi">3</code></pre>
+</div>
+</div>
+<p>This syntax provides a concise way of applying type assertions on the return type of any expression.</p>
+</section>
+<section id="different-kinds-of-types" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="different-kinds-of-types"><span class="header-section-number">2.4</span> Different kinds of types</h2>
+<p>Julia’s type system knows two fundamental kinds of types: abstract and concrete types; and there are two kinds of concrete types: <span class="PKeyword" data-custom-style="PKeyword">primitive</span> and <span class="PKeyword" data-custom-style="PKeyword">composite</span> types. We will now discuss the various types, starting with abstract, primitive, and composite types, followed by special cases like <span class="PKeyword" data-custom-style="PKeyword">singletons</span> and mutable composite types.</p>
+<section id="abstract-types" class="level3" data-number="2.4.1">
+<h3 data-number="2.4.1" class="anchored" data-anchor-id="abstract-types"><span class="header-section-number">2.4.1</span> Abstract types</h3>
+<p>Hierarchies of abstract types provide the backbone of Julia’s programming model. They describe relations between concrete types and provide a context for them to fit in. They allow implementing methods that apply to a whole group of types instead of just one type alone and separate behavior from implementation. A typical design pattern in Julia defines an interface for an abstract type that encodes a desired behavior. The actual implementation of such an interface typically happens on all levels of a type hierarchy. If a piece of code makes sense for a group of types, it is implemented for the common supertype of those types. If a piece of code only makes sense for a specific concrete type, it is implemented for this type only. Even if a piece of code makes sense for several types, a type-specific implementation can be added to leverage the characteristics of the respective type for efficiency.</p>
+<p>New abstract types are introduced with the <code>abstract type</code> keyword followed by the name of the new type. For example, a new abstract type <code>MyAbstractType</code> can be defined by:</p>
+<div id="c98635e2" class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> MyAbstractType <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Optionally, the name of the type can be followed by <code>&lt;:</code> and an existing abstract type:</p>
+<div id="58c4bc41" class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> MyAbstractSubtype <span class="op">&lt;:</span><span class="dt"> MyAbstractType </span><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This makes <code>MyAbstractSubtype</code> a <em>subtype</em> of the parent type or <em>supertype</em> <code>MyAbstractType</code>. If no supertype is explicitly specified, the default supertype is <code>Any</code>, which is at the top of Julia’s type graph. Therefore, all types are subtypes of <code>Any</code> and all objects are instances thereof.</p>
+<p>The <code>&lt;:</code> operator generally means “is a subtype of”. It is not only used in type declarations but also in expressions, where it acts as a subtype operator. It returns true when its left operand is a subtype of its right operand:</p>
+<div id="1f81a06e" class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Integer</span> <span class="op">&lt;:</span><span class="dt"> Number</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="19">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="c96d940d" class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="dt">String</span> <span class="op">&lt;:</span><span class="dt"> Number</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="20">
+<pre class=""><code class=" ansi">false</code></pre>
+</div>
+</div>
+<p>Note that all types are considered a subtype of themselves, both abstract and concrete types:</p>
+<div id="7695e8ab" class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Number</span> <span class="op">&lt;:</span><span class="dt"> Number</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="21">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="6d364743" class="cell" data-execution_count="21">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Float64</span> <span class="op">&lt;:</span><span class="dt"> Float64</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="22">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<p>The supertype of a type can also be explicitly identified with the <code>supertype</code> function:</p>
+<div id="c9bdf542" class="cell" data-execution_count="22">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">supertype</span>(<span class="dt">Float64</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="23">
+<pre class=""><code class=" ansi">AbstractFloat</code></pre>
+</div>
+</div>
+<div id="f80e06bb" class="cell" data-execution_count="23">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">supertype</span>(<span class="dt">AbstractFloat</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="24">
+<pre class=""><code class=" ansi">Real</code></pre>
+</div>
+</div>
+<div id="647aeefe" class="cell" data-execution_count="24">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">supertype</span>(<span class="dt">Real</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="25">
+<pre class=""><code class=" ansi">Number</code></pre>
+</div>
+</div>
+<p>In order to get an idea about the aforementioned type hierarchies, let us consider Julia’s native number types. In the previous chapter, we encountered several concrete number types:</p>
+<ul>
+<li><code>Int8</code>, <code>Int16</code>, <code>Int32</code>, <code>Int64</code>, and <code>Int128</code> for signed integers,</li>
+<li><code>UInt8</code>, <code>UInt16</code>, <code>UInt32</code>, <code>UInt64</code>, and <code>UInt128</code> for unsigned integers,</li>
+<li><code>Float16</code>, <code>Float32</code>, and <code>Float64</code> for floating-point numbers.</li>
+</ul>
+<p>While the different number types in each group have different lengths, they all represent the same kind of data, and we expect the members of each group to behave the same. We also expect a piece of code to make sense for all group members as long as the behavior it implements is not explicitly dependent on the bit length of the type. Therefore all signed integers share a common supertype, <code>Signed</code>, while all unsigned integers share a common supertype, <code>Unsigned</code>. This allows to implement methods that are the same for all signed integers to work on arguments of type <code>Signed</code>, while the corresponding methods for unsigned integers work on arguments of type <code>Unsigned</code>.</p>
+<p>To a lesser but still large extent, we expect signed and unsigned integers to behave the same. That is why both, <code>Signed</code> and <code>Unsigned</code>, have a common supertype <code>Integer</code>. Behavior whose implementation is identical to signed and unsigned integers can thus be implemented in a common method that accepts arguments of type <code>Integer</code>.</p>
+<p>Similarly, all float types share a common supertype <code>AbstractFloat</code>, and both <code>Integer</code> and <code>AbstractFloat</code> share a common supertype <code>Real</code>, which again is a subtype of <code>Number</code>. The <code>Number</code> type, on the other hand, derives from <code>Any</code> and is thus the most general number type in Julia. The part of Julia’s numerical type hierarchy that we just discussed can be summarized as follows:</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> <span class="dt">Number</span> <span class="kw">end</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> <span class="dt">Real</span>     <span class="op">&lt;:</span><span class="dt"> Number </span><span class="kw">end</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> <span class="dt">AbstractFloat</span> <span class="op">&lt;:</span><span class="dt"> Real </span><span class="kw">end</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> <span class="dt">Integer</span>  <span class="op">&lt;:</span><span class="dt"> Real </span><span class="kw">end</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> <span class="dt">Signed</span>   <span class="op">&lt;:</span><span class="dt"> Integer </span><span class="kw">end</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> <span class="dt">Unsigned</span> <span class="op">&lt;:</span><span class="dt"> Integer </span><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Some other types we did not list are <code>Rational</code>, another subtype of <code>Real</code>, and <code>Complex</code>, a subtype of <code>Number</code>.</p>
+</section>
+<section id="primitive-types" class="level3" data-number="2.4.2">
+<h3 data-number="2.4.2" class="anchored" data-anchor-id="primitive-types"><span class="header-section-number">2.4.2</span> Primitive types</h3>
+<p>Julia knows two kinds of concrete types: primitive types and composite types. Primitive types only consist of bits. Examples are integers and floating-point values, bools and characters. Primitive types are the basic building blocks for composite types.</p>
+<p>In Julia, all primitive types are declared natively in Julia itself, and it is straightforward to define custom primitive types using the following syntax:</p>
+<div id="bfbf7b25" class="cell" data-execution_count="25">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">primitive type</span> «name» «bits» <span class="kw">end</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="kw">primitive type</span> «name» <span class="op">&lt;:</span><span class="dt"> «supertype» </span>«bits» <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>With the first line, the new type will be a subtype of <code>Any</code>, while in the second line, a supertype is explicitly specified. The storage required by the type is specified in bits, although currently only multiples of 8 are supported. Consider the type declaration in the following example:</p>
+<div id="3fe20f49" class="cell" data-execution_count="26">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">primitive type</span> Float128 <span class="op">&lt;:</span><span class="dt"> AbstractFloat </span><span class="fl">128</span> <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This defines a custom 128-bit type that is a subtype of <code>AbstractFloat</code>.</p>
+<div data-custom-style="PCallout">
+<p>It is rarely ever necessary to implement a custom primitive type. If some special behavior is required, it is usually better to wrap one of the standard types.</p>
+</div>
+</section>
+<section id="composite-types" class="level3" data-number="2.4.3">
+<h3 data-number="2.4.3" class="anchored" data-anchor-id="composite-types"><span class="header-section-number">2.4.3</span> Composite types</h3>
+<p>Composite types are collections of named fields whose instances can be treated as single values. Each field is an instance of either a primitive or another composite type. In other languages, composite types are called structs, records, or objects.</p>
+<p>New composite types are introduced with the <code>struct</code> keyword followed by the name of the new type and a list of field names. For example, a new composite type <code>FooBar</code> with two fields, <code>foo</code> and <code>bar</code>, can be defined by:</p>
+<div id="bb8a1185" class="cell" data-execution_count="27">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> FooBar</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    foo</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>    bar</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Optionally, the name of the type can be followed by <code>&lt;:</code> and an abstract type:</p>
+<div id="e279a83f" class="cell" data-execution_count="28">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> SubFooBar <span class="op">&lt;:</span><span class="dt"> MyAbstractType</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    foo</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>    bar</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This makes <code>SubFooBar</code> a subtype of <code>MyAbstractType</code>. If no supertype is explicitly specified, the new type becomes a subtype of <code>Any</code>. The types of fields can be annotated with the <code>::</code> operator, e.g.,</p>
+<div id="efcfc6ae" class="cell" data-execution_count="29">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> TypedFooBar</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    foo<span class="op">::</span><span class="dt">Real</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>    bar<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Both concrete types and abstract types can be used. In the latter case, the field can hold values of all concrete subtypes of the specified abstract type, e.g., the field <code>foo</code> in <code>TypedFooBar</code> can hold all kinds of real numbers, including <code>Int8</code>, <code>Int16</code>, and other ints, but also <code>Float32</code>, <code>Float64</code>, and <code>Rational</code>. In contrast, the field <code>bar</code> is constrained only to hold values of type <code>Float64</code>. In the absence of type annotations, the type of a field defaults to <code>Any</code>. Therefore such fields can hold values of any type.</p>
+<p>To create an instance of a composite type, we have to call its <span class="PKeyword" data-custom-style="PKeyword">constructor</span> by applying the type name like a function and passing the values of the fields as arguments. For example, an instance of the <code>FooBar</code> type can be created by</p>
+<div id="e39f4f03" class="cell" data-execution_count="30">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>fb <span class="op">=</span> <span class="fu">FooBar</span>(<span class="st">"Hello"</span>, <span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="30">
+<pre class=""><code class=" ansi">FooBar("Hello", 42)</code></pre>
+</div>
+</div>
+<p>Julia generates two <span class="PKeyword" data-custom-style="PKeyword">default constructors</span> automatically: one that accepts arguments that match the field types exactly and one that accepts any kind of arguments and tries to convert them to the types of the fields.</p>
+<p>Our <code>FooBar</code> has no type constraints so we can initialize both fields with any value. However, if we try to instantiate the <code>TypedFooBar</code> type, the values for <code>foo</code> and <code>bar</code> must be convertible to any subtype of <code>Real</code> and <code>Float64</code>, respectively. If the given values are not convertible without losing information, an exception is raised:</p>
+<div id="08c74db1" class="cell" data-execution_count="31">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">TypedFooBar</span>(<span class="fl">4</span> <span class="op">+</span> <span class="fl">2im</span>, <span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: InexactError: Real(4 + 2im)</code></pre>
+</div>
+</div>
+<p>The first argument is a <code>Complex</code> that cannot be converted into a <code>Real</code> unless the imaginary part is zero:</p>
+<div id="0e984e29" class="cell" data-execution_count="32">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">TypedFooBar</span>(<span class="fl">4</span> <span class="op">+</span> <span class="fl">0im</span>, <span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="32">
+<pre class=""><code class=" ansi">TypedFooBar(4, 42.0)</code></pre>
+</div>
+</div>
+<p>In the following example, the first argument is a <code>Rational</code>, which is a subtype of <code>Real</code> and thus will not be converted. The second argument is an <code>Int</code>, which is converted to <code>Float64</code> according to the type declaration:</p>
+<div id="f09305b6" class="cell" data-execution_count="33">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">TypedFooBar</span>(<span class="fl">4</span> <span class="op">//</span> <span class="fl">2</span>, <span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="33">
+<pre class=""><code class=" ansi">TypedFooBar(2//1, 42.0)</code></pre>
+</div>
+</div>
+<p>The next chapter, <span class="PItalics" data-custom-style="PItalics">Methods and Multiple Dispatch</span>, will discuss constructors in more detail.</p>
+<p>The values of the fields of a composite type can be accessed using the <code>.</code> notation. For example, the <code>fb</code> variable references a value of type <code>FooBar</code>, which has two fields, <code>foo</code> and <code>bar</code>, that can be accessed as follows:</p>
+<div id="80f57b92" class="cell" data-execution_count="34">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>fb.foo</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="34">
+<pre class=""><code class=" ansi">"Hello"</code></pre>
+</div>
+</div>
+<div id="d9912baf" class="cell" data-execution_count="35">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>fb.bar</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="35">
+<pre class=""><code class=" ansi">42</code></pre>
+</div>
+</div>
+<p>If a field is accessed, that does not exist, an exception is raised:</p>
+<div id="d3ec51e0" class="cell" data-execution_count="36">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>fb.baz</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: type FooBar has no field baz</code></pre>
+</div>
+</div>
+<p>The field names of a type can be retrieved by the <code>fieldnames</code> function:</p>
+<div id="52cf9c03" class="cell" data-execution_count="37">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fieldnames</span>(FooBar)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="37">
+<pre class=""><code class=" ansi">(:foo, :bar)</code></pre>
+</div>
+</div>
+<p>Note that this function has to be applied to a type, not to an instance:</p>
+<div id="ac5b0963" class="cell" data-execution_count="38">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fieldnames</span>(fb)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class="ansi"><code class="ansi ansi">LoadError: MethodError: no method matching fieldnames(::FooBar)
+
+Closest candidates are:
+  fieldnames(<span class="ansi-red-intense-fg">::Core.TypeofBottom</span>)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">reflection.jl:170</span>
+  fieldnames(<span class="ansi-red-intense-fg">::Type{&lt;:Tuple}</span>)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">reflection.jl:172</span>
+  fieldnames(<span class="ansi-red-intense-fg">::UnionAll</span>)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">reflection.jl:169</span>
+  ...</code></pre>
+</div>
+</div>
+<p>If we want to retrieve the fields of a type from an instance, we have to use <code>fieldnames</code> in conjunction with the <code>typeof</code> function, e.g., <code>fieldnames(typeof(fb))</code>.</p>
+</section>
+<section id="immutability" class="level3" data-number="2.4.4">
+<h3 data-number="2.4.4" class="anchored" data-anchor-id="immutability"><span class="header-section-number">2.4.4</span> Immutability</h3>
+<p>The fields of composite types cannot be modified once an instance is created: they are immutable. Julia also supports mutable composite objects, which can be declared with the keyword <code>mutable struct</code>. Before we discuss these in more detail in the next section, let us first understand why the default behavior for fields is to be immutable, as it may seem odd at first.</p>
+<p>Some advantages are compiler-related: immutable objects may be represented more efficiently in memory, and sometimes memory allocation can be avoided altogether. Another advantage is related to program safety: if some fields need to satisfy invariants, these can be checked in a custom constructor for a type. However, they can only be guaranteed after instantiation if a type is immutable. Otherwise, the value of the corresponding field could be changed after the fact in a way that violates the invariants enforced by the constructor.</p>
+<p>Some essential properties of immutability in Julia are important to understand. Obviously, the value of an immutable type cannot be modified. If we try to do so, an exception will be raised. We can see this when trying to modify one of the fields of an instance of our <code>FooBar</code> type:</p>
+<div id="ddff1371" class="cell" data-execution_count="39">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>fb.foo <span class="op">=</span> <span class="fl">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: setfield!: immutable struct of type FooBar cannot be changed</code></pre>
+</div>
+</div>
+<p>This has various consequences. It implies that values of primitive types cannot be changed once they are set. Therefore, there are no in-place operations on primitive types, and even operations like <code>x += 3</code> will allocate a new instance of some number type and re-assign the variable <code>x</code> to reference that new value instead of overwriting the value originally referenced by <code>x</code>.</p>
+<p>For composite types, it implies that their fields’ values will never change once instantiated. Fields that are primitive types will always hold the same sequence of bits. Fields that are composite types will always reference the same composite value.</p>
+<p>A vital detail is that the immutability of a composite type is not passed on to its fields. If a field of an immutable composite type references a mutable type, then its values remain mutable. However, as the field itself is immutable, the reference cannot be changed, so that once set the field will always reference the same value. For example, consider an immutable type that has a field referencing an array. After initialization, the field will always reference the same array, but the elements of the array can be changed nonetheless.</p>
+<p>Immutability only applies to the values of the fields of the immutable object. Its fields cannot be changed to reference different values, e.g., if an immutable object is created with a field that holds an array, this field will always reference the same array. Still, we can change the elements of the array as long as the array itself is mutable.</p>
+</section>
+<section id="mutable-composite-types" class="level3" data-number="2.4.5">
+<h3 data-number="2.4.5" class="anchored" data-anchor-id="mutable-composite-types"><span class="header-section-number">2.4.5</span> Mutable composite types</h3>
+<p>As sometimes immutable structs are too much of a restriction, Julia also allows declaring a composite type to be mutable by using the <code>mutable struct</code> keyword instead of <code>struct</code>:</p>
+<div id="2cca72ca" class="cell" data-execution_count="40">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="kw">mutable struct</span> MutableFooBar</span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>    foo<span class="op">::</span><span class="dt">Real</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>    bar<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Instances of a <code>mutable struct</code> can be modified:</p>
+<div id="7a427233" class="cell" data-execution_count="41">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>mfb <span class="op">=</span> <span class="fu">MutableFooBar</span>(<span class="fl">4</span><span class="op">//</span><span class="fl">2</span>, <span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="41">
+<pre class=""><code class=" ansi">MutableFooBar(2//1, 42.0)</code></pre>
+</div>
+</div>
+<div id="c623fc42" class="cell" data-execution_count="42">
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>mfb.foo <span class="op">=</span> <span class="fl">23</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>mfb</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="42">
+<pre class=""><code class=" ansi">MutableFooBar(23, 42.0)</code></pre>
+</div>
+</div>
+<p>The <code>foo</code> field of <code>mfb</code> is first initialized to <code>42</code> and then changed to <code>23</code>. Note that this does not change the bit content of the value referenced by <code>foo</code> from <code>42</code> to <code>23</code>, but instead a new number value is created and <code>foo</code> is changed to refer to this new value.</p>
+<div data-custom-style="PCallout">
+<p>Since Julia v1.8 it is possible to set individual fields of a mutable struct to be immutable or constant by preceding the field name with <code>const</code>.</p>
+</div>
+<p>This allows us to adapt the <code>FooBar</code> type to have one mutable field <code>foo</code> and one immutable field <code>bar</code>:</p>
+<div id="905c1cf3" class="cell" data-execution_count="43">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="kw">mutable struct</span> PartiallyMutableFooBar</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>    foo<span class="op">::</span><span class="dt">Real</span></span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> bar<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>pmfb <span class="op">=</span> <span class="fu">PartiallyMutableFooBar</span>(<span class="fl">4</span><span class="op">//</span><span class="fl">2</span>, <span class="fl">42</span>)</span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>pmfb.foo <span class="op">=</span> <span class="fl">23</span></span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>pmfb.bar <span class="op">=</span> <span class="fl">23</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: setfield!: const field .bar of type PartiallyMutableFooBar cannot be changed</code></pre>
+</div>
+</div>
+<p>The mutability of fields aside, mutable types behave exactly the same as immutable types, at least from the programmer’s perspective. Under the hood, however, Julia can treat instances of mutable and immutable types quite differently. This concerns allocations on the heap vs.&nbsp;allocations on the stack or the identification of objects by their address vs.&nbsp;identification by their value. These differences allow the compiler to apply certain optimizations in the case of immutable types that are not possible for mutable types.</p>
+<p>For example, sufficiently small immutable values like single numbers are usually allocated on the stack, while mutable values are allocated on the heap. Mutable objects can only be reliably identified by their address as they might hold different values over time. Therefore they must have stable memory addresses and are passed to functions via reference. Immutable objects, on the other hand, are associated with specific field values, and the field values alone are required to identify the object uniquely. These differences allow the compiler to freely copy immutable values since it is impossible to distinguish between the original object and a copy programmatically.</p>
+</section>
+<section id="singletons" class="level3" data-number="2.4.6">
+<h3 data-number="2.4.6" class="anchored" data-anchor-id="singletons"><span class="header-section-number">2.4.6</span> Singletons</h3>
+<p>Julia implements some special behavior for a special kind of composite type, namely for immutable composite types with no fields. Such types are called <span class="PKeyword" data-custom-style="PKeyword">singletons</span>. They are declared like usual immutable types, without any special keyword, but just with a lack of fields:</p>
+<div id="57fe0abb" class="cell" data-execution_count="44">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NoFields <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Of course, such types can also be the subtype of some abstract type.</p>
+<p>What is special about singletons, is that there can be only one instance of such types. The <code>===</code> operator can be used to confirm that the two instances of <code>NoFields</code> are actually one and the same:</p>
+<div id="6f4d756b" class="cell" data-execution_count="45">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="fu">NoFields</span>() <span class="op">===</span> <span class="fu">NoFields</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="45">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<p>Without the discussion of the next chapter, <span class="PItalics" data-custom-style="PItalics">Methods and Multiple Dispatch</span>, it is difficult to see the utility of the singleton type construct. In short, it allows for specializing function behavior on a type that is given as an explicit argument rather than implied by the types of the other arguments. We will return to this topic in <span class="PItalics" data-custom-style="PItalics">Chapters 3</span> and <span class="PItalics" data-custom-style="PItalics">5</span> as this is a common design pattern in Julia.</p>
+</section>
+<section id="type-aliases" class="level3" data-number="2.4.7">
+<h3 data-number="2.4.7" class="anchored" data-anchor-id="type-aliases"><span class="header-section-number">2.4.7</span> Type aliases</h3>
+<p>A type alias, i.e., a new name for an already expressible type, can be declared by a simple assignment statement:</p>
+<div id="6c8d7f44" class="cell" data-execution_count="46">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> FB <span class="op">=</span> FooBar</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="46">
+<pre class=""><code class=" ansi">FooBar</code></pre>
+</div>
+</div>
+<p>After such a definition, the alias can be used in the same way as the original type, e.g., to create an instance, we can call <code>FB</code> as a constructor:</p>
+<div id="eea684d8" class="cell" data-execution_count="47">
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>fb <span class="op">=</span> <span class="fu">FB</span>(<span class="fl">4</span> <span class="op">//</span> <span class="fl">2</span>, <span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="47">
+<pre class=""><code class=" ansi">FooBar(2//1, 42)</code></pre>
+</div>
+</div>
+<p>Internally, Julia uses this feature to define the <code>Int</code> and <code>UInt</code> aliases, which refer to either <code>Int32</code> or <code>Int64</code> and <code>UInt32</code> or <code>UInt64</code>, respectively, depending on the native pointer size of the system.</p>
+</section>
+</section>
+<section id="parametric-types" class="level2" data-number="2.5">
+<h2 data-number="2.5" class="anchored" data-anchor-id="parametric-types"><span class="header-section-number">2.5</span> Parametric types</h2>
+<p>Parametric types are one of the most powerful features of Julia’s type system. As the name suggests, these are types that depend on parameters in a similar way to templates in C++ or generics in Python. Declaring a parametric type introduces not only one new type but a whole family of new types, namely one for each possible combination of parameter values. All declared types (abstract, primitive, composite) can be parameterized by any type or a value of any bits type. This is a handy feature for generic programming as well as for performance.</p>
+<p>All declared types (abstract, primitive, composite) can be amended by type parameters. Parametric types are defined in a very similar way as non-parametric types. The only difference is that the type name is followed by curly braces that contain one or more type parameters. We will discuss this in more detail for all declared types, starting with parametric composite types, as these are the most often used kind of parametric types.</p>
+<section id="parametric-composite-types" class="level3" data-number="2.5.1">
+<h3 data-number="2.5.1" class="anchored" data-anchor-id="parametric-composite-types"><span class="header-section-number">2.5.1</span> Parametric composite types</h3>
+<p>A parametric composite type, depending on the parameter <code>T</code>, is declared by:</p>
+<div id="a2ea7a9e" class="cell" data-execution_count="48">
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ParametricFooBar{T}</span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>    foo<span class="op">::</span><span class="dt">T</span></span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>    bar<span class="op">::</span><span class="dt">T</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This declaration states that the type has two fields, <code>foo</code> and <code>bar</code>, which are both of type <code>T</code> (cf.&nbsp;type annotations earlier in this chapter). The parametric type <code>ParametricFooBar{T}</code> can be turned into a concrete type by specifying a value for <code>T</code>, for example <code>ParametricFooBar{Float64}</code>. This type can be used like any other composite type, e.g., it can be instantiated in the usual way by:</p>
+<div id="cdafbe0f" class="cell" data-execution_count="49">
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ParametricFooBar</span><span class="dt">{Float64}</span>(<span class="fl">23</span>, <span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="49">
+<pre class=""><code class=" ansi">ParametricFooBar{Float64}(23.0, 42.0)</code></pre>
+</div>
+</div>
+<p>The type <code>ParametricFooBar{Float64}</code> is equivalent to the <code>ParametricFooBar</code> type with <code>T</code> replaced by <code>Float64</code>, i.e., it is equivalent to</p>
+<div id="0b40ab4c" class="cell" data-execution_count="50">
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> FooBarF64</span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>    foo<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>    bar<span class="op">::</span><span class="dt">Float64</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>By inserting different values for <code>T</code>, such as <code>Float32</code>, <code>Int</code>, <code>AbstractString</code>, etc., we obtain different concrete types whose fields <code>foo</code> and <code>bar</code> are of the respective type. Thus the declaration of <code>ParametricFooBar{T}</code> does not define only one type but an infinite number of types.</p>
+<p>Julia provides two default constructors for parametric composite types: one that expects the type parameters to be explicitly specified and one that tries to deduce the type parameters from the types of the arguments. If we instantiate a parametric type like in the example above, that is, with all type parameters explicitly given, we are effectively instantiating a concrete type, <code>ParametricFooBar{Float64}</code>, and thus the default constructor works in the very same way as for concrete composite types: exactly one argument must be supplied for each field, and if the arguments’ types do not match the prescribed types of the fields, Julia tries to convert them.</p>
+<p>Often it is not necessary to provide values for the parameters explicitly as they can be deduced from the types of the arguments. Therefore the name of the parametric type without values for the parameters can also be used as a constructor as long as the values of the type parameters can be determined unambiguously. Thus, an instance of <code>ParametricFooBar{Float64}</code> can also created by:</p>
+<div id="f307ff82" class="cell" data-execution_count="51">
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ParametricFooBar</span>(<span class="fl">23</span>., <span class="fl">42</span>.)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="51">
+<pre class=""><code class=" ansi">ParametricFooBar{Float64}(23.0, 42.0)</code></pre>
+</div>
+</div>
+<p>Note that providing arguments of different number types does not allow for an unambiguous determination of the type parameter <code>T</code>:</p>
+<div id="1caee83c" class="cell" data-execution_count="52">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ParametricFooBar</span>(<span class="fl">23</span>, <span class="fl">42</span>.)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class="ansi"><code class="ansi ansi">LoadError: MethodError: no method matching ParametricFooBar(::Int64, ::Float64)
+
+Closest candidates are:
+  ParametricFooBar(::T, <span class="ansi-red-intense-fg">::T</span>) where T
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-magenta-fg">Main</span> <span class="ansi-black-intense-fg ansi-underline">In[48]:2</span></code></pre>
+</div>
+</div>
+<p>However, custom constructor methods that allow handling such cases appropriately can be defined as discussed in <span class="PItalics" data-custom-style="PItalics">Chapter 3</span>.</p>
+<p>Often it may not make sense for type parameters to take any possible type but only a restricted set of types, e.g., a type may only be a subtype of <code>Number</code> but not an <code>AbstractString</code> or anything else. In such situations, the range of the parameter <code>T</code> can be constrained by using the <code>&lt;:</code> syntax followed by a type:</p>
+<div id="c5aaff5b" class="cell" data-execution_count="53">
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> RealFooBar{T <span class="op">&lt;:</span><span class="dt"> Real</span>}</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>    foo<span class="op">::</span><span class="dt">T</span></span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>    bar<span class="op">::</span><span class="dt">T</span></span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>With this restriction in place, we can still create instances with real field values but not e.g.&nbsp;with complex values:</p>
+<div id="05519508" class="cell" data-execution_count="54">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">RealFooBar</span>(<span class="fl">23</span>., <span class="fl">42</span>.)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="54">
+<pre class=""><code class=" ansi">RealFooBar{Float64}(23.0, 42.0)</code></pre>
+</div>
+</div>
+<div id="5f743921" class="cell" data-execution_count="55">
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">RealFooBar</span>(<span class="fl">23</span> <span class="op">+</span> <span class="fl">23im</span>, <span class="fl">42</span> <span class="op">+</span> <span class="fl">42im</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: MethodError: no method matching RealFooBar(::Complex{Int64}, ::Complex{Int64})</code></pre>
+</div>
+</div>
+<p>Type parameters are evaluated from left to right and can depend on the preceding parameters:</p>
+<div id="20427ee4" class="cell" data-execution_count="56">
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ArrayFooBar{T <span class="op">&lt;:</span><span class="dt"> Number</span>, A <span class="op">&lt;:</span><span class="dt"> AbstractArray{T}</span>}</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>    x<span class="op">::</span><span class="dt">A</span></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This type has a field <code>x</code> that holds an array, whose type is a type parameter. In addition, the element type of the array is also a type parameter and restricted to be some kind of number type.</p>
+<p>This mostly concludes the basic discussion of parametric types. Although we will briefly discuss parametric abstract and primitive types in the following two sections, everything works pretty much the same as with composite types.</p>
+</section>
+<section id="parametric-abstract-types" class="level3" data-number="2.5.2">
+<h3 data-number="2.5.2" class="anchored" data-anchor-id="parametric-abstract-types"><span class="header-section-number">2.5.2</span> Parametric abstract types</h3>
+<p>A parametric abstract type, depending on the parameter <code>T</code>, is declared by:</p>
+<div id="b155ba47" class="cell" data-execution_count="57">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> MyParametricAbstractType{T} <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>As with composite types, this does not only declare one abstract type but a whole collection of abstract types. We obtain a distinct abstract type <code>MyParametricAbstractType{T}</code> for each value of <code>T</code>.</p>
+<p>The range of type parameters for abstract types can be constrained in the same way as for composite types:</p>
+<div id="08739c34" class="cell" data-execution_count="58">
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract type</span> MyRealAbstractType{T <span class="op">&lt;:</span><span class="dt"> Real</span>} <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>With this, concrete abstract types can only be formed when using appropriate parameter values:</p>
+<div id="ba842601" class="cell" data-execution_count="59">
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>MyRealAbstractType{<span class="dt">Real</span>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="59">
+<pre class=""><code class=" ansi">MyRealAbstractType{Real}</code></pre>
+</div>
+</div>
+<div id="cfb6c1d3" class="cell" data-execution_count="60">
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a>MyRealAbstractType{<span class="dt">Float64</span>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="60">
+<pre class=""><code class=" ansi">MyRealAbstractType{Float64}</code></pre>
+</div>
+</div>
+<div id="715eb6fe" class="cell" data-execution_count="61">
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>MyRealAbstractType{<span class="dt">AbstractString</span>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: TypeError: in MyRealAbstractType, in T, expected T&lt;:Real, got Type{AbstractString}</code></pre>
+</div>
+</div>
+<p>The last example raises an exception as <code>AbstractString</code> is not a subtype of <code>Real</code>.</p>
+</section>
+<section id="parametric-primitive-types" class="level3" data-number="2.5.3">
+<h3 data-number="2.5.3" class="anchored" data-anchor-id="parametric-primitive-types"><span class="header-section-number">2.5.3</span> Parametric primitive types</h3>
+<p>Even primitive types can be declared parametrically, although this is probably a feature most scientific software developers will never use. Julia uses this feature to represent pointers as follows:</p>
+<div id="ef959008" class="cell" data-execution_count="62">
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 32-bit system:</span></span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a><span class="kw">primitive type</span> <span class="dt">Ptr</span>{T} <span class="fl">32</span> <span class="kw">end</span></span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 64-bit system:</span></span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a><span class="kw">primitive type</span> <span class="dt">Ptr</span>{T} <span class="fl">64</span> <span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>In contrast to typical parametric composite types, the type parameter <code>T</code> is not used in the definition of the type itself. After all, primitive types do not have fields whose type could be annotated. Instead, it is used as a tag that denotes what kind of object the pointer refers to, e.g., to distinguish a pointer to a <code>Float64</code> variable, which would be of type <code>Ptr{Float64}</code>, and a pointer to an <code>Int64</code> variable, which would be of type <code>Ptr{Int64}</code>, even though both pointers have identical representations.</p>
+<p>This concludes the discussion of parametric types. In the next section, we discuss how different sets of concrete and parametric types relate to each other.</p>
+</section>
+</section>
+<section id="type-set-theory" class="level2" data-number="2.6">
+<h2 data-number="2.6" class="anchored" data-anchor-id="type-set-theory"><span class="header-section-number">2.6</span> Type set theory</h2>
+<p>When considering type hierarchies in Julia, there exist a few potential pitfalls, especially with parametric types, and it is crucial to understand them. We will thus analyze which types constitute subtypes of other types and which do not, although at first glance, one might expect them to.</p>
+<p>We will discuss these issues based on Julia’s abstract array type, <code>AbstractArray{T,N}</code>, and its default concrete array type, <code>Array{T,N} &lt;: DenseArray{T,N} &lt;: AbstractArray{T,N}</code>. Both have two parameters, <code>T</code> denoting the type of the array elements and <code>N</code> denoting the dimension of an array.</p>
+<p>The parametric types <code>Array</code> and <code>AbstractArray</code> are valid type objects whose subtypes contain all types that can be obtained by specifying the parameters <code>T</code> and <code>N</code>. For example, upon fixing the element type <code>T</code> to <code>Float64</code> and the dimension <code>N</code> to <code>1</code>, we can verify that the following intuitive subtype relationships hold in practice:</p>
+<div id="b79659fa" class="cell" data-execution_count="63">
+<div class="sourceCode cell-code" id="cb63"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AbstractArray</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> AbstractArray</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="62">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="3cb9536a" class="cell" data-execution_count="64">
+<div class="sourceCode cell-code" id="cb64"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Array</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> Array</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="63">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="b1b0bb11" class="cell" data-execution_count="65">
+<div class="sourceCode cell-code" id="cb65"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Array</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> AbstractArray</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="64">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<p>Concrete types with different values of the parameters are never subtypes of each other, not even if the parameter of one subtype is itself a subtype of the parameter of the other subtype, e.g., even though we have <code>Float64 &lt;: Real</code> the following expressions are not true:</p>
+<div id="5008bf65" class="cell" data-execution_count="66">
+<div class="sourceCode cell-code" id="cb66"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AbstractArray</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> AbstractArray{Real,1}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="65">
+<pre class=""><code class=" ansi">false</code></pre>
+</div>
+</div>
+<div id="a7ebafe5" class="cell" data-execution_count="67">
+<div class="sourceCode cell-code" id="cb67"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Array</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> Array{Real,1}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="66">
+<pre class=""><code class=" ansi">false</code></pre>
+</div>
+</div>
+<p>A concrete parametric subtype of an abstract parametric type can only be considered a proper subtype if the type parameters of the two types match:</p>
+<div id="d6de3f94" class="cell" data-execution_count="68">
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Array</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> AbstractArray{Float64,1}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="67">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<p>As a consequence, some care is needed when annotating method arguments. If, for example, we restrict an argument to be of type <code>Array{Real,1}</code> the method cannot be applied to values of type <code>Array{Float64,1}</code> as it is not a subtype of <code>Array{Real,1}</code>:</p>
+<div id="d8eca737" class="cell" data-execution_count="69">
+<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="fu">printreal</span>(a<span class="op">::</span><span class="dt">Array{Real,1}</span>) <span class="op">=</span> <span class="fu">println</span>(a)</span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a><span class="fu">printreal</span>(<span class="fu">Array</span><span class="dt">{Float64,1}</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class="ansi"><code class="ansi ansi">LoadError: MethodError: no method matching printreal(::Vector{Float64})
+
+Closest candidates are:
+  printreal(<span class="ansi-red-intense-fg">::Vector{Real}</span>)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-magenta-fg">Main</span> <span class="ansi-black-intense-fg ansi-underline">In[68]:1</span></code></pre>
+</div>
+</div>
+<p>This problem can be solved by using the notation <code>Array{&lt;:Real,1}</code>, which represents the set of all concrete <code>Array</code> types with parameter <code>N = 1</code> and parameter <code>T</code> a subtype of <code>Real</code>:</p>
+<div id="150feec5" class="cell" data-execution_count="70">
+<div class="sourceCode cell-code" id="cb70"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AbstractArray</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> AbstractArray{&lt;:Real,1}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="69">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="f40d34fb" class="cell" data-execution_count="71">
+<div class="sourceCode cell-code" id="cb71"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Array</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> Array{&lt;:Real,1}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="70">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="8dbcec27" class="cell" data-execution_count="72">
+<div class="sourceCode cell-code" id="cb72"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Array</span>{<span class="dt">Float64</span>,<span class="fl">1</span>} <span class="op">&lt;:</span><span class="dt"> AbstractArray{&lt;:Real,1}</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="71">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<p>Thus we can adapt the above method as follows in order to make it work:</p>
+<div id="2f303f0c" class="cell" data-execution_count="73">
+<div class="sourceCode cell-code" id="cb73"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="fu">printsubofreal</span>(a<span class="op">::</span><span class="dt">Array{&lt;:Real,1}</span>) <span class="op">=</span> <span class="fu">println</span>(a)</span>
+<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a><span class="fu">printsubofreal</span>(<span class="fu">Array</span><span class="dt">{Float64,1}</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre class=""><code class=" ansi">Float64[]</code></pre>
+</div>
+</div>
+<p>The <code>printsubofreal</code> accepts all one-dimensional arrays whose element type is a subtype of <code>Real</code>.</p>
+<p>This concludes the discussion of basic type set theory, which hopefully shed some light on the relationships between concrete types, parametric types and abstract types. In the next section, we discuss some technical details on the inner workings of abstract types.</p>
+</section>
+<section id="unionall-types" class="level2" data-number="2.7">
+<h2 data-number="2.7" class="anchored" data-anchor-id="unionall-types"><span class="header-section-number">2.7</span> UnionAll types</h2>
+<p>The type of parametric types like <code>Array</code> cannot be a normal <code>DataType</code>. On the one hand, we have just seen that parametric types act as supertypes for all their instances, but a <code>DataType</code> is final and cannot be a supertype for any other type. On the other hand, without specifying values for all type parameters, a parametric type cannot be instantiated and thus does not constitute a concrete type. This suggests that parametric types are of a different type, namely a <code>UnionAll</code> type. For each parameter, such a type represents the union of all possible types originating from a parametric type by applying all permissible values of the parameter. For parametric types with more than one parameter, this representation is constructed in a nested manner.</p>
+<p>Let us illuminate this in more detail with two examples: the <code>Ptr{T}</code> type as a parametric type with just one parameter and the <code>Array{T,N}</code> type as an example with multiple parameters. Above we just wrote <code>Ptr</code> and <code>Array</code> for the respective <code>UnionAll</code> types. More accurately, these types are expressed with the <code>where</code> keyword as <code>Ptr{T} where T</code> and <code>Array{T,N} where N where T</code>, where each <code>where</code> introduces a type parameter.</p>
+<p>It is possible to restrict type parameters with subtype relations. For example, <code>Ptr{T} where T &lt;: Number</code> is a pointer that can only be associated with objects that are some kind of <code>Number</code>. The same type can be expressed more conveniently by <code>Ptr{&lt;:Number}</code>. If a type has multiple parameters, they can be restricted individually. For example, <code>Array{T} where T &lt;: Number</code> and <code>Array{&lt;:Number}</code> denote an array that is restricted to hold numbers but whose dimension is still arbitrary.</p>
+<p>If we specialize a parametric type, for example <code>Array{T,N}</code> to <code>Array{Float64,2}</code>, we are first substituting <code>T</code> for <code>Float64</code> and then <code>N</code> for <code>2</code>. Remember that <code>Array{T,N}</code> is a short form for <code>Array{T,N} where N where T</code>. Thus we first substitute the outermost type parameter, which is <code>T</code>, resulting in another <code>UnionAll</code> type which depends only on one type parameter, and then we substitute the remaining type parameter, which is the inner parameter <code>N</code> in the original parametric type. Therefore the syntax <code>Array{Float64,2}</code> is equivalent to <code>Array{Float64}{2}</code>, which also explains why it is possible to partially instantiate a type, e.g., <code>Array{Float64}</code>, where the first type parameter is fixed but the second parameter is still free. We can also just fix the second parameter, resorting to the <code>where</code> syntax, as in <code>Array{T,1} where T</code>, which refers to all one-dimensional arrays with arbitrary element type <code>T</code>. Of course, this can also be combined with a type restriction, e.g., <code>Array{T,1} where T &lt;: Number</code> and <code>Array{&lt;:Number,1}</code> denote all one-dimensional arrays whose elements are of some subtype of <code>Number</code>.</p>
+<p>It is often useful to assign names to partially specialized parametric types. This can be achieved by a simple assignment. For example, Julia defines the <code>Vector{T}</code> type as follows:</p>
+<div id="f9bc332e" class="cell" data-execution_count="74">
+<div class="sourceCode cell-code" id="cb74"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Vector</span>{T} <span class="op">=</span> <span class="dt">Array</span>{T,<span class="fl">1</span>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>This is equivalent to</p>
+<div id="dd7049fe" class="cell" data-execution_count="75">
+<div class="sourceCode cell-code" id="cb75"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> <span class="dt">Vector</span> <span class="op">=</span> <span class="dt">Array</span>{T,<span class="fl">1</span>} <span class="kw">where</span> T</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>With this definition, writing <code>Vector{Float64}</code> is equivalent to <code>Array{Float64,1}</code>. The <code>Vector</code> type represents all one-dimensional <code>Array</code> types.</p>
+<p>The <code>UnionAll</code> type is only one special type in Julia’s type system. Another family of important types is type unions.</p>
+</section>
+<section id="type-unions" class="level2" data-number="2.8">
+<h2 data-number="2.8" class="anchored" data-anchor-id="type-unions"><span class="header-section-number">2.8</span> Type unions</h2>
+<p>Type unions are special abstract types whose possible values are all instances of any of its argument types. A type union can be constructed with the <code>Union</code> keyword:</p>
+<div id="bd1745f4" class="cell" data-execution_count="76">
+<div class="sourceCode cell-code" id="cb76"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> IntOrFloat <span class="op">=</span> <span class="dt">Union</span>{<span class="dt">Int64</span>,<span class="dt">Float64</span>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="73">
+<pre class=""><code class=" ansi">Union{Float64, Int64}</code></pre>
+</div>
+</div>
+<p>This type can hold either integer or float values:</p>
+<div id="031f063e" class="cell" data-execution_count="77">
+<div class="sourceCode cell-code" id="cb77"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="fl">42</span> <span class="op">::</span><span class="dt"> IntOrFloat</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="74">
+<pre class=""><code class=" ansi">42</code></pre>
+</div>
+</div>
+<div id="a22bb628" class="cell" data-execution_count="78">
+<div class="sourceCode cell-code" id="cb78"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a><span class="fl">42.0</span> <span class="op">::</span><span class="dt"> IntOrFloat</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="75">
+<pre class=""><code class=" ansi">42.0</code></pre>
+</div>
+</div>
+<p>If we try to assign a different value to an instance of <code>IntOrFloat</code>, an exception is raised:</p>
+<div id="b903e06a" class="cell" data-execution_count="79">
+<div class="sourceCode cell-code" id="cb79"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a><span class="fl">42</span> <span class="op">+</span> <span class="fl">23im</span> <span class="op">::</span><span class="dt"> IntOrFloat</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class=""><code class=" ansi">LoadError: TypeError: in typeassert, expected Union{Float64, Int64}, got a value of type Complex{Bool}</code></pre>
+</div>
+</div>
+<p>In many programming languages, type unions are a construct used only internally by the compiler for reasoning about types. In contrast to most other languages, Julia exposes this construct to the programmer.</p>
+<p>A typical design pattern in Julia, based on the <code>Union</code> type, is annotating optional fields with <code>Union{T, Nothing}</code>. The type <code>Nothing</code> is a singleton type, thus it has only one instance, namely the <code>nothing</code> object. It serves a similar purpose as the <code>void</code> or <code>null</code> keywords in languages such as C or C++. However, in contrast to many other languages, <code>nothing</code> in Julia is not just a keyword but an actual object, that is an instance of the <code>Nothing</code> type. If a field is annotated by the type union <code>Union{T, Nothing}</code>, where <code>T</code> is often restricted to be a subtype of some other type, e.g., <code>Union{T, Nothing} where {T &lt;: AbstractArray}</code>, it can hold either a value of type <code>T</code> or <code>nothing</code>.</p>
+<p>The singleton type <code>Missing</code> and its instance <code>missing</code> can be used similarly to indicate that a field does not have a value. Although fields and variables can be left uninitialized, accessing them raises an exception immediately. Thus, setting them to <code>nothing</code> or <code>missing</code> is often preferred. As both types behave quite differently, the choice of which to use depends on the context. For example, adding a number to <code>nothing</code> raises an error, while adding a number to <code>missing</code> results in <code>missing</code>:</p>
+<div id="b0cf950d" class="cell" data-execution_count="80">
+<div class="sourceCode cell-code" id="cb80"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a><span class="cn">nothing</span> <span class="op">+</span> <span class="fl">2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class="ansi"><code class="ansi ansi">LoadError: MethodError: no method matching +(::Nothing, ::Int64)
+
+Closest candidates are:
+  +(::Any, ::Any, <span class="ansi-red-intense-fg">::Any</span>, <span class="ansi-red-intense-fg">::Any...</span>)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">operators.jl:587</span>
+  +(<span class="ansi-red-intense-fg">::Missing</span>, ::Number)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">missing.jl:123</span>
+  +(<span class="ansi-red-intense-fg">::BigFloat</span>, ::Union{Int16, Int32, Int64, Int8})
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">mpfr.jl:447</span>
+  ...</code></pre>
+</div>
+</div>
+<div id="36382054" class="cell" data-execution_count="81">
+<div class="sourceCode cell-code" id="cb81"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="cn">missing</span> <span class="op">+</span> <span class="fl">2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="78">
+<pre class=""><code class=" ansi">missing</code></pre>
+</div>
+</div>
+<p>This concludes the discussion of special types in Julia’s type system. We will close this chapter with an overview of how to obtain information about values and their types.</p>
+</section>
+<section id="type-introspection" class="level2" data-number="2.9">
+<h2 data-number="2.9" class="anchored" data-anchor-id="type-introspection"><span class="header-section-number">2.9</span> Type introspection</h2>
+<p>In <span class="PItalics" data-custom-style="PItalics">Section 2.3</span>, <span class="PItalics" data-custom-style="PItalics">Working with types</span>, we already encountered some of the means Julia provides for type introspection, such as the <code>typeof</code> and <code>isa</code> functions. As in Julia, everything is an object, including types, they can be passed to functions as arguments just like anything else. For reference, we briefly summarize some of Julia’s most important introspection functions in one place.</p>
+<p>The <code>isa</code> function is applied to a value and a type. It returns <code>true</code> if the value is of the given type and <code>false</code> else:</p>
+<div id="efa6df2e" class="cell" data-execution_count="82">
+<div class="sourceCode cell-code" id="cb82"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="fu">isa</span>(<span class="fl">42</span>, <span class="dt">Int</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="79">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="b61597b2" class="cell" data-execution_count="83">
+<div class="sourceCode cell-code" id="cb83"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb83-1"><a href="#cb83-1" aria-hidden="true" tabindex="-1"></a><span class="fu">isa</span>(<span class="fl">42</span>, <span class="dt">Float64</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="80">
+<pre class=""><code class=" ansi">false</code></pre>
+</div>
+</div>
+<p>The <code>typeof</code> function is applied to a value and returns its type:</p>
+<div id="3d57278e" class="cell" data-execution_count="84">
+<div class="sourceCode cell-code" id="cb84"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb84-1"><a href="#cb84-1" aria-hidden="true" tabindex="-1"></a><span class="fu">typeof</span>(<span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="81">
+<pre class=""><code class=" ansi">Int64</code></pre>
+</div>
+</div>
+<p>Since types are objects, they also have types:</p>
+<div id="da8914fa" class="cell" data-execution_count="85">
+<div class="sourceCode cell-code" id="cb85"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a><span class="fu">typeof</span>(<span class="dt">Int</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="82">
+<pre class=""><code class=" ansi">DataType</code></pre>
+</div>
+</div>
+<p>All declared types (abstract, primitive, composite) are represented by the <code>DataType</code> type, which is a composite type that stores the kind of the type, its size, the storage layout, the field names and parameters if present, and is an instance of itself:</p>
+<div id="980aa2cd" class="cell" data-execution_count="86">
+<div class="sourceCode cell-code" id="cb86"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a><span class="fu">typeof</span>(DataType)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="83">
+<pre class=""><code class=" ansi">DataType</code></pre>
+</div>
+</div>
+<p>The <code>supertype</code> function is applied to a type and returns its supertype:</p>
+<div id="4ed870a5" class="cell" data-execution_count="87">
+<div class="sourceCode cell-code" id="cb87"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb87-1"><a href="#cb87-1" aria-hidden="true" tabindex="-1"></a><span class="fu">supertype</span>(<span class="dt">Float64</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="84">
+<pre class=""><code class=" ansi">AbstractFloat</code></pre>
+</div>
+</div>
+<div id="e86d1b2d" class="cell" data-execution_count="88">
+<div class="sourceCode cell-code" id="cb88"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="fu">supertype</span>(<span class="dt">Number</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="85">
+<pre class=""><code class=" ansi">Any</code></pre>
+</div>
+</div>
+<div id="9880bc30" class="cell" data-execution_count="89">
+<div class="sourceCode cell-code" id="cb89"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb89-1"><a href="#cb89-1" aria-hidden="true" tabindex="-1"></a><span class="fu">supertype</span>(<span class="dt">Any</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="86">
+<pre class=""><code class=" ansi">Any</code></pre>
+</div>
+</div>
+<p>The <code>supertype</code> function can only be applied to declared types, that is, instances of <code>DataType</code>, but not e.g.&nbsp;to type unions such as <code>Union{Float32,Float64}</code>, even if they share a common supertype:</p>
+<div id="03f534b5" class="cell" data-execution_count="90">
+<div class="sourceCode cell-code" id="cb90"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true" tabindex="-1"></a><span class="fu">supertype</span>(<span class="dt">Union</span>{<span class="dt">Float32</span>,<span class="dt">Float64</span>})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre class="ansi"><code class="ansi ansi">LoadError: MethodError: no method matching supertype(::Type{Union{Float32, Float64}})
+
+Closest candidates are:
+  supertype(<span class="ansi-red-intense-fg">::UnionAll</span>)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">operators.jl:44</span>
+  supertype(<span class="ansi-red-intense-fg">::DataType</span>)
+<span class="ansi-black-intense-fg">   @</span> <span class="ansi-black-intense-fg">Base</span> <span class="ansi-black-intense-fg ansi-underline">operators.jl:43</span></code></pre>
+</div>
+</div>
+<p>The <code>subtypes</code> function does exactly the opposite of the <code>supertype</code> function: it is applied to an abstract type and returns all its subtypes:</p>
+<div id="6d659453" class="cell" data-execution_count="91">
+<div class="sourceCode cell-code" id="cb91"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb91-1"><a href="#cb91-1" aria-hidden="true" tabindex="-1"></a><span class="fu">subtypes</span>(<span class="dt">Real</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="88">
+<pre class=""><code class=" ansi">4-element Vector{Any}:
+ AbstractFloat
+ AbstractIrrational
+ Integer
+ Rational</code></pre>
+</div>
+</div>
+<div id="c1f33879" class="cell" data-execution_count="92">
+<div class="sourceCode cell-code" id="cb92"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb92-1"><a href="#cb92-1" aria-hidden="true" tabindex="-1"></a><span class="fu">subtypes</span>(<span class="dt">AbstractFloat</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="89">
+<pre class=""><code class=" ansi">5-element Vector{Any}:
+ BigFloat
+ Float128
+ Float16
+ Float32
+ Float64</code></pre>
+</div>
+</div>
+<p>The <code>&lt;:</code> operator checks whether the operand on the left is a subtype of the operand on the right:</p>
+<div id="0f3f41c7" class="cell" data-execution_count="93">
+<div class="sourceCode cell-code" id="cb93"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Number</span> <span class="op">&lt;:</span><span class="dt"> Any</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="90">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="3ecebe03" class="cell" data-execution_count="94">
+<div class="sourceCode cell-code" id="cb94"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb94-1"><a href="#cb94-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Any</span> <span class="op">&lt;:</span><span class="dt"> Number</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="91">
+<pre class=""><code class=" ansi">false</code></pre>
+</div>
+</div>
+<p>Julia provides several functions for examining a given type. The functions <code>isabstracttype</code>, <code>isprimitivetype</code>, <code>issingletontype</code>, and <code>isstructtype</code> can be used to check the kind of a type:</p>
+<div id="0148642f" class="cell" data-execution_count="95">
+<div class="sourceCode cell-code" id="cb95"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb95-1"><a href="#cb95-1" aria-hidden="true" tabindex="-1"></a><span class="fu">isabstracttype</span>(<span class="dt">Number</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="92">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="b6ac7a61" class="cell" data-execution_count="96">
+<div class="sourceCode cell-code" id="cb96"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a><span class="fu">isprimitivetype</span>(<span class="dt">Int</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="93">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="6fafa948" class="cell" data-execution_count="97">
+<div class="sourceCode cell-code" id="cb97"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb97-1"><a href="#cb97-1" aria-hidden="true" tabindex="-1"></a><span class="fu">issingletontype</span>(NoFields)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="94">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<div id="4c362588" class="cell" data-execution_count="98">
+<div class="sourceCode cell-code" id="cb98"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb98-1"><a href="#cb98-1" aria-hidden="true" tabindex="-1"></a><span class="fu">isstructtype</span>(FooBar)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="95">
+<pre class=""><code class=" ansi">true</code></pre>
+</div>
+</div>
+<p>The functions <code>ismutabletype</code> and <code>ismutable</code> can be used to check if a type or a value, respectively, is immutable:</p>
+<div id="acb9f470" class="cell" data-execution_count="99">
+<div class="sourceCode cell-code" id="cb99"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb99-1"><a href="#cb99-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ismutabletype</span>(<span class="dt">Int</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="96">
+<pre class=""><code class=" ansi">false</code></pre>
+</div>
+</div>
+<div id="2a4cce57" class="cell" data-execution_count="100">
+<div class="sourceCode cell-code" id="cb100"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb100-1"><a href="#cb100-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ismutable</span>(<span class="fl">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="97">
+<pre class=""><code class=" ansi">false</code></pre>
+</div>
+</div>
+<p>The <code>fieldnames</code> function is applied to a type and returns the names of all its fields:</p>
+<div id="54d5a689" class="cell" data-execution_count="101">
+<div class="sourceCode cell-code" id="cb101"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb101-1"><a href="#cb101-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fieldnames</span>(FooBar)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="98">
+<pre class=""><code class=" ansi">(:foo, :bar)</code></pre>
+</div>
+</div>
+<p>Similarly, the <code>fieldtypes</code> function is applied to a type and returns the types of all its fields:</p>
+<div id="fc466f6e" class="cell" data-execution_count="102">
+<div class="sourceCode cell-code" id="cb102"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb102-1"><a href="#cb102-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fieldtypes</span>(FooBar)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="99">
+<pre class=""><code class=" ansi">(Any, Any)</code></pre>
+</div>
+</div>
+<div id="908618f1" class="cell" data-execution_count="103">
+<div class="sourceCode cell-code" id="cb103"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb103-1"><a href="#cb103-1" aria-hidden="true" tabindex="-1"></a><span class="fu">fieldtypes</span>(TypedFooBar)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="100">
+<pre class=""><code class=" ansi">(Real, Float64)</code></pre>
+</div>
+</div>
+<p>Several more functions like this exist for examining a composite type’s inner workings. However, their use is slightly more intricate, so the reader is referred to the Julia Manual for more details on those.</p>
+</section>
+<section id="summary" class="level2" data-number="2.10">
+<h2 data-number="2.10" class="anchored" data-anchor-id="summary"><span class="header-section-number">2.10</span> Summary</h2>
+<p>In this chapter, we discussed Julia’s type system, how to define abstract and concrete types, and how parametric types can be used to define whole families of types. We have glimpsed at the construction of type hierarchies by analyzing parts of Julia’s number and array types.</p>
+<p>We have learned how the different kinds of types interact and relate to each other and discussed some of the intricacies of hierarchies of parametric types.</p>
+<p>The type system is at the core of what makes Julia unique. Together with the multiple dispatch paradigm, which will be discussed in the next chapter, it is responsible for the sublime productivity and expressivity of the language.</p>
+<p>It’s all in the types…</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="../content/julia-language.html" class="pagination-link" aria-label="Basics of the Julia Language">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basics of the Julia Language</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../content/methods-multiple-dispatch.html" class="pagination-link" aria-label="Methods &amp; Multiple Dispatch">
+        <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Methods &amp; Multiple Dispatch</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
