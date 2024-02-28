@@ -8,10 +8,10 @@ This is a book about scientific computing, research software engineering, and pa
 ## License
 
 This work is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-[<img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src=​"https://mirrors.creativecommons.org/presskit/icons/cc.svg">](http://creativecommons.org/licenses/by-nc-nd/4.0/)
-[<img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src=​"https://mirrors.creativecommons.org/presskit/icons/by.svg">](http://creativecommons.org/licenses/by-nc-nd/4.0/)
-[<img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src=​"https://mirrors.creativecommons.org/presskit/icons/nc.svg">](http://creativecommons.org/licenses/by-nc-nd/4.0/)
-[<img style="height:22px!important;margin-left:3px;vertical-align:text-bottom;" src=​"https://mirrors.creativecommons.org/presskit/icons/nd.svg">](http://creativecommons.org/licenses/by-nc-nd/4.0/)
+![](https://mirrors.creativecommons.org/presskit/icons/cc.svg | width=22)
+![](https://mirrors.creativecommons.org/presskit/icons/by.svg | width=22)
+![](https://mirrors.creativecommons.org/presskit/icons/nc.svg | width=22)
+![](https://mirrors.creativecommons.org/presskit/icons/nd.svg | width=22)
 
 This license requires that reusers give credit to the creator.
 It allows reusers to copy and distribute the material in any medium or format in unadapted form and for noncommercial purposes only.
