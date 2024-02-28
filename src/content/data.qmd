@@ -1,0 +1,29 @@
+# Working with Data
+
+
+## Reading and Writing CSV
+
+
+## Reading and Writing HDF5
+
+
+## Reading and Writing Config Files
+
+
+## Manipulating Tabulated Data with DataFrames.jl
+
+
+## Basic Plotting with Makie
+
+
+## Augmented Data
+
+
+## Quadruple and Arbitrary Precision
+
+
+## Uncertainties (Measurements.jl)
+
+
+## Physical Units (Unitful.jl)
+

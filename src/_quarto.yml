@@ -1,0 +1,43 @@
+project:
+  type: book
+
+book:
+  title: "Modern Scientific Computing with Julia"
+  author: "Michael Kraus"
+  repo-url: https://github.com/michakraus/JuliaMSC
+  search: true
+
+bibliography: resources/references.bib
+
+jupyter: julia-1.10
+
+profile:
+  group: 
+    - [all-chapters,
+       julia-language,
+       type-system,
+       methods-multiple-dispatch,
+       arrays]
+  default: all-chapters
+
+execute:
+  echo: true
+  output: true
+  warning: true
+
+number-sections: true
+tbl-cap-location: bottom
+
+format:
+  julia-html:
+    theme: cosmo
+    html-math-method: katex
+    css: resources/jsc.css
+  julia-pdf:
+    pdf-engine: lualatex
+    documentclass: scrreprt
+    papersize: a4
+    highlight-style: github
+    include-in-header: resources/jsc.tex
+    code-block-bg: "#e0e0e0"
+    code-block-border-left: "#d0d0d0"

@@ -1,0 +1,14 @@
+# Parallel Programming Paradigms
+
+
+## Threads
+
+
+## Tasks
+
+
+## Distributed
+
+
+## MPI
+

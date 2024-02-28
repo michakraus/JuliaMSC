@@ -1,0 +1,19 @@
+# Performance & Introspection {#sec:performance}
+
+
+## Performance Tips
+
+
+## Type Stability
+
+
+## Code Introspection
+
+
+## Profiling
+
+
+## Benchmarking
+
+
+## Debugging

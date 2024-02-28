@@ -1,0 +1,10 @@
+project:
+  output-dir: _chapters
+
+book:
+  title: "Methods & Multiple Dispatch"
+  chapters:
+    - index.qmd
+    - content/methods-multiple-dispatch.qmd
+
+toc: false

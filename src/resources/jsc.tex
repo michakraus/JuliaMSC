@@ -1,0 +1,25 @@
+\usepackage{newunicodechar}
+
+\definecolor{outbgcolor}{HTML}{EEEEEE}
+\newenvironment{ShadedLight}{\begin{tcolorbox}[colback={outbgcolor}, enhanced, frame hidden, borderline west={3pt}{0pt}{shadecolor}, breakable, boxrule=0pt, sharp corners]}{\end{tcolorbox}}
+
+
+\newfontfamily{\emojifont}{TwemojiMozilla.ttf}[Renderer=HarfBuzz]
+\DeclareTextFontCommand{\textemoji}{\emojifont}
+\newcommand{\emojichar}[2]{%
+    \newunicodechar{#1}{\textemoji{#2}}%
+}
+\emojichar{👋}{\char"1F44B}
+\emojichar{🐢}{\char"1F422}
+
+
+\newfontfamily{\kanjifont}{HaranoAjiGothic}
+\DeclareTextFontCommand{\textkanji}{\kanjifont}
+\newcommand{\kanjichar}[2][\textkanji]{%
+    \newunicodechar{#2}{#1{#2}}%
+}
+\kanjichar{こ}
+\kanjichar{ん}
+\kanjichar{に}
+\kanjichar{ち}
+\kanjichar{は}

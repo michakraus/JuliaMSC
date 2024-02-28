@@ -1,0 +1,24 @@
+# Preface {.unnumbered}
+
+Julia is a modern programming language that was specifically developed for scientific computing.
+By combining a high-level syntax with just-in-time compilation, Julia achieves high efficiency both in terms of development time and code execution time.
+Its unique features facilitate the development of general, modular, extensible and thus reusable code.
+Julia encourages good software development practices as tools for documentation, tests, and version control are already built into the language and its ecosystem.
+
+Julia is a multi-paradigm programming language that lends itself both to functional and object-oriented programming patterns.
+Although Julia is not class-based like Python or C++, its main paradigm, *multiple dispatch*, and its *dynamic type system* provide a very powerful and extremely effective way of programming.
+Generally speaking, multiple dispatch tends to be more flexible and expressive than class-based object orientism and better suited for scientific software development.
+
+Julia's type system is well suited for building *abstraction layers* which together with multiple dispatch facilitate and simplify  
+
+- targeted and incremental manual optimizations,  
+- advanced automatic optimizations by the compiler,  
+- programming of heterogeneous architectures,  
+- development of domain-specific languages,  
+- sophisticated techniques like automatic differentiation and differentiable programming.  
+
+These are some of the topics covered in this book.
+
+## Status
+
+Chapters 1-3 are mostly finished and Chapter 4 is approximately 50% done (28.02.2024).

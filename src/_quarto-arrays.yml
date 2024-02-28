@@ -1,0 +1,10 @@
+project:
+  output-dir: _chapters
+
+book:
+  title: "Working with Arrays"
+  chapters:
+    - index.qmd
+    - content/arrays.qmd
+
+toc: false

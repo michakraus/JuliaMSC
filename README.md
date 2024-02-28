@@ -7,7 +7,7 @@ While many examples are inspired by the implementation of numerical algorithms f
 
 ## Outline
 
-Chapters 1-3 are mostly finished and Chapter 4 is approximately 50% done.
+Chapters 1-3 are mostly finished and Chapter 4 is approximately 50% done (28.02.2024).
 
 **Part 1: Programming in Julia**
 

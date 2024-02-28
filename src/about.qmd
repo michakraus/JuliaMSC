@@ -1,0 +1,41 @@
+# About {-}
+
+Scientific computing, research software engineering, and parallel computing with Julia.
+
+## About the Author
+
+Michael Kraus is a research group leader at the Max Planck Institute for Plasma Physics.
+His research focuses on the development of novel numerical algorithms that combine ideas from classical numerical analysis, scientific machine learning and reduced complexity modelling.
+He has over 20 years of experience in software development inside and outside of academia.
+Since 2015 Julia has been his preferred programming language for scientific software development.
+Michael is the main author of numerous Julia packages such as GeometricIntegrators.jl, GeometricMachineLearning.jl or ReducedComplexityModeling.jl.
+Since 2020 he creates and delivers training courses for scientific computing in Julia and research software engineering.
+
+## What kind of individual would be interested in this book?
+
+If you are a scientist developing research software, this book is for you.
+
+## What knowledge do they need before they start reading?
+
+If you have basic knowledge of the Julia programming language and are looking to gain expertise in scientific software development, this book is for you.
+Experienced programmers in some other language like Python or C++ should also be able to follow along after reviewing the introductory chapter on the Julia programming language.
+Some familiarity with parallel programming paradigms will be helpful in order to get the most out of the last chapters.
+
+## Why should they buy this book? 
+
+Scientists already familiar with the basics of the Julia programming language will build a comprehensive toolkit for scientific software development with Julia. 
+This book teaches essential and advanced concepts of Julia programming and important elements of the Julia ecosystem that simplify the software development process.
+It covers research software engineering techniques that lead to more robust, maintainable and extensible code and explains parallel programming with different paradigms such as threads, MPI and GPUs.
+
+## What is the product approach and USP of the book?
+
+Complete with step-by-step explanations of important concepts and real-world example projects the reader will explore the Julia programming language and learn why it is uniquely suited for scientific software development.
+The reader will learn about important research software engineering practices and how Julia facilitates these practices.
+
+## Product Breakdown
+
+The reader will learn about Julia's unique features, typical design patterns, developing software packages, following good research software engineering practices, explore useful libraries for common tasks, and develop parallel applications.
+
+## By the end of this book you will... 
+
+By the end of the book, readers will be able to develop scientific software with Julia, think in a Julian way, and apply research software engineering techniques.

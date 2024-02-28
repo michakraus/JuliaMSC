@@ -1,0 +1,10 @@
+project:
+  output-dir: _chapters
+
+book:
+  title: "Julia's Type System"
+  chapters:
+    - index.qmd
+    - content/type-system.qmd
+
+toc: false

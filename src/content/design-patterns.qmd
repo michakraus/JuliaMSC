@@ -1,0 +1,13 @@
+# Design Patterns {#sec:design-patterns}
+
+## Composition
+
+
+## Conversion, Promotion, Similar
+
+
+## Interfaces
+
+
+## Domain-specific Languages
+

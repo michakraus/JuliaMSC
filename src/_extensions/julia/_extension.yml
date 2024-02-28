@@ -1,0 +1,15 @@
+title: Extensions for Julia
+author: Meik Hellmund
+version: 0.3.1
+contributes:
+  format:
+    common:
+      filters:
+        - ansi2htmltex.lua
+      ipynb-filters:
+        - escfilter.py  
+    pdf:
+      default
+
+    html:
+      monofont: "JuliaMono"

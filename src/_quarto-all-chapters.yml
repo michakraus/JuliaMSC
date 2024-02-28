@@ -1,0 +1,40 @@
+book:
+  chapters:
+    - about.qmd
+    - index.qmd
+    
+    - part: content/part1.qmd
+      chapters:
+        - content/julia-language.qmd
+        - content/type-system.qmd
+        - content/methods-multiple-dispatch.qmd
+        - content/arrays.qmd
+        - content/design-patterns.qmd
+  
+    - part: content/part2.qmd
+      chapters:
+        - content/package-development.qmd
+        - content/git-and-github.qmd
+        - content/software-sustainability.qmd
+        - content/test-driven-development.qmd
+        - content/performance-and-introspection.qmd
+  
+    - part: content/part3.qmd
+      chapters:
+        - content/data.qmd
+        - content/differentiable-programming.qmd
+        - content/linear-and-nonlinear-equations.qmd
+        - content/differential-equations.qmd
+        - content/machine-learning.qmd
+    
+    - part: content/part4.qmd
+      chapters:
+        - content/parallel-programming.qmd
+        - content/parallel-arrays.qmd
+        - content/parallel-gpu.qmd
+        - content/parallel-hybrid.qmd
+        - content/parallel-case-studies.qmd
+
+    - references.qmd
+
+toc: true

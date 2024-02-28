@@ -1,0 +1,42 @@
+\documentclass[tikz, margin=2mm]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,backgrounds,matrix}
+
+\begin{document}
+\begin{tikzpicture}[%
+    arraynode/.style={
+        draw,
+        rectangle, 
+        minimum size = 25,
+        node contents={[\the\numexpr\pgfmatrixcurrentrow\relax,
+                        \the\numexpr\pgfmatrixcurrentcolumn\relax]},
+        alias=n\the\numexpr\pgfmatrixcurrentrow\relax\the\numexpr\pgfmatrixcurrentcolumn\relax
+        },
+    array/.style={%
+        matrix of math nodes,
+        nodes = arraynode,
+        column sep = 10,
+        row sep = 10,
+        nodes in empty cells,
+        row 1/.style={nodes={fill=red!30}},
+        row 2/.style={nodes={fill=blue!30}},
+        row 3/.style={nodes={fill=green!30}}}, 
+]
+
+\draw[white] (-3,-3) rectangle (+3,+3);
+
+\matrix[array] {
+&&\\
+&&\\
+&&\\
+};
+
+\begin{scope}[on background layer]
+\draw[-{LaTeX}, line width=3pt, black!50] ([xshift=-6.5mm]n11.west)
+        foreach \i [count=\ni from 1] in {1,...,2}{
+           -- ([xshift=2mm]n\i3.east) arc(90:-90:3.125mm)
+           -- ([shift={(-2mm,-6.25mm)}]n\i1.west) arc(90:270:3.125mm)}
+           -- ([xshift=8mm]n33.east);
+\end{scope}
+\end{tikzpicture}%
+\end{document}

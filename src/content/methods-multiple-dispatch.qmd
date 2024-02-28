@@ -1,0 +1,937 @@
+# Methods & Multiple Dispatch {#sec:methods}
+
+Julia is unique among the major programming languages in that it is built around the multiple dispatch paradigm, a generic programming concept that solves the so-called expression problem.
+Multiple dispatch provides a powerful and natural paradigm for structuring and organizing programs, especially in research software engineering.
+
+This chapter will discuss the differences between functions and methods, how multiple dispatch works, and how it differs from the single dispatch paradigm of conventional class-based object-oriented languages (CBOO).
+We will cover the definition of methods in all detail, introduce parametric methods, and revisit constructors for composite types in light of the preceding discussion.
+We will briefly touch on related topics such as generic code, specialization, and coding style guidelines.
+This chapter closes with a typical Julia design pattern that is entirely based on multiple dispatch.
+In summary, we will cover the following topics:
+
+- Functions, methods, and dispatch
+- Defining methods
+- Parametric methods
+- Constructors
+- Generic code and specialization
+- Coding guidelines
+- Case study: dispatch on empty types
+
+As in the previous chapter, we start by defining some terminology and reviewing how this terminology is used with other popular programming languages.
+
+
+## Functions, methods, and dispatch
+
+A function is a map from a tuple of arguments to a return value.
+A function can be thought of as an operation that implements a specific conceptual behavior.
+The actual implementation of that behavior may vary greatly depending on the number and types of the function's arguments.
+
+For example, the summation and multiplication of integers are very different from the same operations applied to floating-point numbers, although the mathematical operation is the same.
+The different implementations all describe the same concept and thus should be referred to by the same function name.
+It would be atrocious if different implementations of summation for different argument types all needed different identifiers such as `sum_ints`, `sum_floats`, `sum_float_to_int`, etc., but that is what many programming languages require.
+Although most programming languages support calling standard functions such as summation and multiplication for different types by the standard operators `+` and `*`, this is a special behavior hardcoded for a limited number of functions and operators and is typically unavailable for user-defined functions.
+Pythonistas may say that Python allows overloading operators like `+`, `-`, `*`, and `/` using so-called _magic methods_, which is true, but again, this functionality is only available for a limited number of predefined operators.
+No user-defined function, neither inside nor outside a class, can have more than one implementation depending on the number or type of arguments.
+
+Julia allows the provision of more than a single implementation of a function under the same name.
+A function can have different implementations, referred to as a _method_, for different counts and types of arguments (the _method signature_).
+The different implementations need not be defined in the same place, at the same time, or even in the same package.
+This flexibility is one of the main reasons for Julia's exceptional extensibility.
+As all functions are first class, this applies to user-defined functions, to functions in the standard library, as well as to a large number of infix operators such as `+` and `*`.
+
+::: {custom-style="PCallout"}
+Be aware that in Python, the term _method_ refers to an operation associated with a class, while the term _function_ refers to an operation that is not associated with a class.
+In Julia, the term _function_ refers to some conceptual behavior, while the term _method_ refers to a specific implementation of that behavior for a certain number and type of arguments.
+:::
+
+
+### Dispatch
+
+The process of choosing a method is called _dispatch_.
+In traditional CBOO languages, dispatch is based solely on the first argument, which is the class to which a method belongs.
+For example, in Python, a method is called by `obj.mymethod(arg1, arg2)`, but the definition of that method reads `def mymethod(self, arg1, arg2):`.
+That is, the object to which the method belongs is always passed to the method as the first argument, followed by the actual arguments specified by the user.
+The method executed is selected solely by the first argument, which selects the object and thus the corresponding class in which the method has been defined.
+In some languages, the argument on which dispatch occurs is implied rather than explicitly written out.
+For example, in C++ or Java, a method is also called by `obj.mymethod(arg1, arg2)`, but there is no additional argument in the definition of the function, only `arg1` and `arg2`. 
+Still, a reference to the object that receives the method call is accessible inside the method via the `this` keyword.
+
+Julia selects the method executed when a function is called based on the number of arguments and the types of _all_ the function arguments.
+This is known as _multiple dynamic dispatch_ or _multiple dispatch_ for short.
+In scientific computing, this approach turns out to be of great advantage and often appears more natural than a CBOO approach.
+Considering mathematical operations such as `+` or `*`, for example, it makes little sense for these operations to belong to one argument more than the other.
+In the expression `x + y`, should the summation operation belong to `x` or `y`?
+There is no obvious choice!
+Moreover, the particular implementation of the operation depends on the types of all the arguments.
+Adding two integers, two floating point numbers, or an integer and a float all require different implementations.
+
+This dilemma, however, extends far beyond purely mathematical code.
+
+
+### Object-oriented programming
+
+When talking about object-oriented programming languages, many developers think about *class-based* object-oriented languages, above and below referred to as *CBOO* languages, such as C++, Java, Python, and Ruby.
+In CBOO languages, composite types have data fields as well as named functions associated with them, and the combination is called an _object_.
+However, not all object-oriented languages are class-based, and even if a language supports classes, not all objects need to be composite types.
+For example, in Ruby or Smalltalk, all values are objects whether they are composites or not.
+In other languages like C++ and Java, primitive values, such as integers and floating-point values, are not objects, but only instances of user-defined composite types are proper objects with associated methods.
+These languages, even though (mostly) class-based, are less pure object-oriented languages.
+
+Julia is a pure object-oriented programming language, as all values are objects, but it is not class-based, as functions are not part of the objects on which they operate.
+Class-based programming is somewhat antithetical to Julia's focus on multiple dispatch, where the method that is executed when calling a function is selected based on the types of all the function's arguments instead of just the first one.
+Therefore, it does not make sense for a function to be part of any specific composite type.
+This, however, does not mean that Julia is not an object-oriented language.
+It is just not class-based.
+
+As everything is an object in Julia, the same is true for functions.
+Function objects can be thought of as holding all the methods implemented for a given function name.
+It turns out that organizing methods this way and discerning them by their arguments instead of organizing them as members of composite types and discerning them by the corresponding objects is a highly beneficial aspect of Julia's design.
+This will become clearer after the discussion of the next section on the *expression problem*.
+
+
+### The expression problem
+
+
+
+
+
+### Multiple dispatch vs. operator overloading
+
+
+
+
+
+## Defining methods
+
+The basics of defining functions (and methods) have already been discussed in [Chapter 1]{.PItalics custom-style="PItalics"}. 
+Still, an important point neglected entirely in that discussion is the difference between functions and methods and how to define more than one method for a function.
+
+Most examples of functions we considered so far were defined with a single method that had a fixed number of arguments but no constraints on argument types.
+Such functions behave very much like functions in traditional dynamically typed languages.
+However, Julia allows the provision of more than a single method definition.
+A function can have an arbitrary number of methods, meaning different implementations of a specific behavior for different arguments.
+To this end, you just need to define the function multiple times with different arguments.
+
+The simplest way to discern different methods is by the number of arguments.
+Let us define a function `printargs` with two methods, one taking one argument and one taking two arguments:
+```{julia}
+printargs(x) = println("One argument: ", x)
+printargs(x, y) = println("Two arguments: $x and $y")
+```
+If we call the function, depending on the number of arguments, either the first or the second method is executed:
+```{julia}
+printargs(1)
+printargs(π, "abc")
+```
+If we call the function with a different number of arguments, an error is thrown:
+```{julia}
+#| error: true
+printargs()
+```
+
+Julia selects methods not only based on the number of arguments but also the types of arguments.
+The signatures of method definitions can be annotated with the `::` type-assertion operator to indicate the types of arguments a method is applicable to.
+
+Consider a function that adds two numbers and multiplies the result by 2:
+```{julia}
+addmul2(x::Float64, y::Float64) = 2(x + y)
+```
+This method definition is only applicable when `x` and `y` are both values of type `Float64`:
+```{julia}
+addmul2(1.0, 2.0)
+```
+If any of the two arguments is of another type, we will be confronted with a `MethodError`
+```{julia}
+#| error: true
+addmul2(1.0, 2.0f0)
+```
+If the argument types are restricted to concrete types such as `Float64`, the types of the provided values must match the prescribed types exactly.
+Julia does not perform automatic conversion, even if lossless conversion is possible.
+Thus, in the example above, there is no automatic promotion of 32-bit floating-point values to 64-bit floating-point values.
+
+For the implementation of the `addmul2` function above, it is no problem to loosen the type restrictions:
+```{julia}
+addmul2(x::Number, y::Number) = 2(x + y)
+```
+This method applies to any pair of arguments whose type is derived from `Number`.
+Thus, it can, for example, also be applied to two integer values:
+```{julia}
+addmul2(1, 2)
+```
+The method can even be applied to values of different types as long as both are numeric values:
+```{julia}
+addmul2(1+2im, 3.0)
+```
+The fact that this works is entirely due to the properties of the `+` operation and specifically to the fact that it has methods for handling disparate numeric types.
+Note that the first method can only be called if both arguments are of type `Float64`.
+As soon as at least one argument is of a different number type, the more general second method, applicable to all subtypes of `Number`, is called.
+For non-numeric values that are not a subtype of `Number` and for fewer or more arguments, the function `addmul2` remains undefined, and applying it will still result in a `MethodError`:
+```{julia}
+#| error: true
+addmul2(1.0, "2.0")
+```
+```{julia}
+#| error: true
+addmul2(1.0, 2.0, 3.0)
+```
+Whenever more than one method is defined for a function and the function is applied, Julia executes the method whose signature matches the number and types of the arguments most closely.
+In the `addmul2` example, we specified two method definitions, one for two arguments of type `Float64` and one more general for two arguments of any subtype of `Number`.
+These two methods define the behavior for `addmul2`.
+If the `addmul2` function is called with two `Float64` arguments, the method that accepts two `Number` arguments is applicable, but the method that accepts two `Float64` arguments is more specific and thus called.
+
+Not constraining an argument's type in a method definition is equivalent to annotating it to be of type `Any`, which is the supertype of all types in Julia.
+As this is the least specific type constraint, a method with unconstrained argument types will only be called if no other method definition applies to the provided argument types.
+This behavior is often used to define a generic fallback method for a function.
+A typical use case is to print a warning like in the following example:
+```{julia}
+addmul2(x, y) = println("addmul2 is not applicable to argument types ($(typeof(x)),$(typeof(y)))")
+```
+We can now call `addmul2` with any pair or arguments without raising an error:
+```{julia}
+addmul2(1.0, "2.0")
+```
+After this discussion on how to define methods and functions, we will now learn how to retrieve information about them.
+
+
+### Generic function objects
+
+In Julia, functions are objects, just like everything else, and they can be assigned to variables, passed as function arguments, or returned as values.
+The function object is responsible for the bookkeeping of all the methods defined for a function.
+The definition of the first method for a function creates the actual function object.
+Every subsequent method definition adds a new method to the existing function object.
+It is also possible to create a function without defining any methods by specifying just an empty function block without arguments:
+```{julia}
+function empty end
+```
+This can be useful for separating interface definitions from implementations or for documentation purposes.
+
+A function object can be accessed interactively via its name.
+For example, if we type the name of the `addmul2` function, we see that there are currently three methods defined:
+```{julia}
+addmul2
+```
+The signatures of those methods can be retrieved by the `methods` function:
+```{julia}
+methods(addmul2)
+```
+It also shows the file and line number where the methods were defined.
+As the code in this book is executed in a notebook, the line numbers correspond to the input cells.
+
+The `applicable` function can be used to query if a function has a method that accepts a specific tuple of arguments, for example
+```{julia}
+applicable(addmul2, 1.0)
+```
+```{julia}
+applicable(addmul2, 1.0, 2.0)
+```
+This function is handy for checking if a user-provided function has the correct interface, for example, the right-hand side of an ordinary differential equation in some solver package.
+
+
+### Method ambiguities
+
+When defining functions with multiple methods, a little care is needed to avoid method ambiguities.
+If we define several methods with the same number of arguments, constraining some argument types but not others or constraining some to concrete types and others to abstract types, it is possible to create a situation in which Julia cannot uniquely determine which method to call for a given set of arguments.
+Consider the following example of a function taking two arguments:
+```{julia}
+iamambiguous(x::Int64, y) = 2(x + y)
+iamambiguous(x, y::Int64) = 2(x + y)
+```
+If we call this function with an `Int64` value in only one of the arguments, everything is fine:
+```{julia}
+iamambiguous(1, 2.0)
+```
+```{julia}
+iamambiguous(1.0, 2)
+```
+However, see what happens if we call it with two `Int64` values:
+```{julia}
+#| error: true
+iamambiguous(1, 2)
+```
+Julia raises a `MethodError` as there is no unique most specific method applicable to that set of arguments.
+Either of the above methods could handle the function call, and neither is more specific than the other.
+What is nice, though, is that Julia also suggests how to fix this situation, namely by defining an additional method that takes two `Int64` arguments:
+```{julia}
+iamnotambiguous(x::Int64, y::Int64) = 2(x + y)
+iamnotambiguous(x::Int64, y) = 2(x + y)
+iamnotambiguous(x, y::Int64) = 2(x + y)
+iamnotambiguous(1, 2)
+```
+With these definitions, there is a unique most specific method for all supported combinations of arguments.
+If both arguments are of type `Int64`, the first method is invoked.
+If only the first argument is of type `Int64`, the second method is invoked.
+If only the second argument is of type `Int64`, the third method is invoked.
+If none of the arguments is of type `Int64`, then a method error is thrown as no appropriate method has been defined.
+
+If a user-defined function has ambiguous methods, the Julia coding guidelines recommend defining the disambiguating method first in order to avoid the existence of ambiguities at any time.
+
+
+### Arbitrary numbers of arguments
+
+Functions that accept a variable number of arguments are called varargs functions.
+Such functions are defined by appending an ellipsis to the last positional argument in a method definition:
+```{julia}
+#| output: false
+printvarargs(x...) = println("$(length(x)) arguments: ", x)
+```
+We can call this method with any number of arguments or no arguments at all:
+```{julia}
+printvarargs()
+```
+```{julia}
+printvarargs(1, 2)
+```
+The varargs argument can be preceded by other positional arguments, but it always has to be the last argument:
+```{julia}
+printxyz(x, y, z...) = println("x = $x and y = $y, and the other $(length(z)) arguments are $z")
+printxyz(1, 2, 3, 4)
+```
+```{julia}
+#| error: true
+printxy(x..., y) = println("x = $x and y = $y")
+```
+Inside the method, the varargs variable `x` is an iterable collection with zero or more values.
+Often, it is not used directly but passed on to another function in the form of single values via splatting:
+```{julia}
+function printxyz(x, y, z...)
+    println("x = $x and y = $y and then we have")
+    printvarargs(z...)
+end
+printxyz(1, 2, 3, 4)
+```
+
+Varargs can be constrained similarly to normal arguments in type but also in number using the parametric `Vararg{T,N}` type.
+The parameter `T` restricts the type of possible arguments.
+It is `Any` by default but can be restricted to more specific abstract or concrete types.
+The parameter `N` denotes the number of varargs.
+If no restriction on the number of arguments is required, `N` can be omitted.
+Let us consider some examples.
+If we want to restrict the number of varargs but not their types, we can use the following syntax:
+```{julia}
+printxy(x, y::Vararg{Any,2}) = println("x = $x, y[1] = $(y[1]) and y[2] = $(y[2])")
+printxy(1,2,3)
+```
+This method can only be called with exactly three arguments, no more, no less:
+```{julia}
+#| error: true
+printxy(1,2)
+```
+```{julia}
+#| error: true
+printxy(1,2,3,4)
+```
+If we want to restrict the type of varargs, but not their number, we can use the following syntax:
+```{julia}
+printints(x::Vararg{Int}) = println("x = $x")
+printints(1,2,3)
+```
+This, however, can be expressed more compactly as follows:
+```{julia}
+#| output: false
+printints(x::Int...) = println("x = $x")
+```
+Type decorations with the `Vararg{T,N}` type are most useful if the number of varargs needs to be restricted.
+If only type constraints need to be applied to varargs, the usual type decoration with a trailing ellipsis is shorter and easier to read.
+Note that no ellipsis is added if types are constrained via the `Vararg{T,N}` type.
+
+
+### Optional arguments
+
+Often, it is desirable to specify default values for certain arguments, thus making those arguments optional.
+Julia supports optional arguments with the usual syntax:
+```{julia}
+addmul2opt(x=1, y=2) = 2(x + y)
+```
+We see that this declaration leads to the definition of three methods, namely:
+```{julia}
+#| output: false
+addmul2opt(x,y) = 2(x + y)
+addmul2opt(x) = addmul2opt(x,2)
+addmul2opt() = addmul2opt(1,2)
+```
+This implies that optional arguments are not a property of a specific function method but rather a property of the function itself.
+
+Optional arguments always have to follow non-optional arguments.
+Therefore, this definition is allowed:
+```{julia}
+#| output: false
+addmul2opt(x, y=2) = 2(x + y)
+```
+While this definition raises an error:
+```{julia}
+#| error: true
+addmul2opt(x=1, y) = 2(x + y)
+```
+
+Julia's treatment of optional arguments involves a few potential pitfalls.
+In the definition above, calling `addmul2opt()` and calling `addmul2opt(1,2)` both result in `6` as `addmul2opt()` calls the first method with arguments `(1,2)`.
+We can alter this behavior by defining an additional, more specialized method.
+Consider adding the following method:
+```{julia}
+addmul2opt(x::Int, y::Int, z::Int = 3) = 2(x + y + z)
+```
+```{julia}
+addmul2opt(1,2)
+```
+```{julia}
+addmul2opt()
+```
+With this additional definition, `addmul2opt()` and `addmul2opt(1,2)` still return the same result, but now it is `12` for both.
+That is, we changed the behavior not only of the method that takes two arguments in case these arguments are of type `Int`, but we also changed the behavior of the method `addmul2opt()` that takes no arguments.
+The latter acts as a relay to the method that takes two arguments, providing it with some default values.
+Thus, by the dynamic nature of multiple dispatch and the type of the default arguments we provided in the original definition of `addmul2opt`, the method `addmul2opt()` now relays to the new method, which is specialized to integer-valued arguments (the type of the default values).
+
+The way Julia implements optional arguments can also lead to unexpected method ambiguities or the unintended override of existing methods.
+Consider the following definitions:
+```{julia}
+#| error: true
+addmul2amb(x::Int, y=2, z=3) = 2(x + y + z)
+addmul2amb(x, y::Float64) = 2(x + y)
+addmul2amb(1, 2.0)
+```
+Among others, the first declaration results in the following method definition:
+```{julia}
+#| output: false
+addmul2amb(x::Int, y) = addmul2amb(x, y, 3)
+```
+Therefore, in the call `addmul2amb(1, 2.0)`, no unique most specific method exists.
+
+Similarly, we may get an unexpected result if we define the following methods:
+```{julia}
+addmul2override(x, y) = 2(x + y)
+addmul2override(x=1, y=2, z=3) = 2(x + y + z)
+addmul2override(1, 2)
+```
+By the first method definition, we would expect `addmul2override(1, 2)` to result in `6`. 
+Still, in practice, it results in `12`, as the second declaration includes the following method definition, which, in the absence of any type constraints, overwrites the original definition of `addmul2override(x, y)`:
+```{julia}
+#| output: false
+addmul2override(x, y) = 2(x + y + 3)
+```
+
+While this behavior is entirely logical in the context of multiple dispatch, it may at first appear unintuitive.
+Thus, it is important to know how Julia treats optional arguments.
+
+
+### Keyword arguments
+
+If a function has a large number of arguments, it is often challenging to remember their order. 
+Think, for example, of a plotting routine and all the arguments determining the style of the plot.
+It is much easier to call such a function when the individual arguments are identified by name instead of position.
+
+When defining a method, the keyword arguments are separated from the positional arguments by a semicolon:
+```{julia}
+#| output: false
+function plot(x, y; linewidth, markersize)
+    ###
+end
+```
+When calling such a method, this separation is not necessary, and the semicolon is optional.
+Therefore, the following function calls are equivalent:
+```{julia}
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = 2, markersize = 10)
+plot([0.0, 1.0], [1.0, 2.0], linewidth = 2, markersize = 10)
+```
+If we omit one of the keyword arguments, an error is raised:
+```{julia}
+#| error: true
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = 2)
+```
+In many cases, keyword arguments are specified with a default value, e.g.
+```{julia}
+#| output: false
+function plot(x, y; linewidth = 2, markersize = 10)
+    ###
+end
+```
+If this is the case, the plot function can also be called without passing any of the keyword arguments or just a subset thereof:
+```{julia}
+plot([0.0, 1.0], [1.0, 2.0])
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = 1)
+plot([0.0, 1.0], [1.0, 2.0]; markersize = 5)
+```
+Keyword arguments are evaluated from left to right, and default expressions can depend on keyword arguments on the left as well as positional arguments:
+```{julia}
+#| output: false
+function plot(x, y; linewidth = 2, markersize = 5*linewidth)
+    ###
+end
+```
+If we call a function that takes keyword arguments, the argument's name can sometimes be inferred.
+If, for example, we pass an existing identifier after the semicolon, the name of the keyword argument is inferred from the name of the identifier so that the following two calls to the `plot` function are equivalent:
+```{julia}
+linewidth = 2
+plot([0.0, 1.0], [1.0, 2.0]; linewidth)
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = linewidth)
+```
+This even works with fields of composite types so that the following two calls to `plot` are also equivalent:
+```{julia}
+options = (linewidth = 2, markersize = 10)
+plot([0.0, 1.0], [1.0, 2.0]; options.linewidth)
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = options.linewidth)
+```
+To pass keywords at runtime, an expression like `key => value` can be used after the semicolon, where `key` needs to be a symbol:
+```{julia}
+argname = :linewidth
+argvalue = 5
+plot([0.0, 1.0], [1.0, 2.0]; argname => argvalue)
+```
+is equivalent to
+```{julia}
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = 5)
+```
+
+Similar to positional arguments, it is possible to decorate keyword arguments with type annotations:
+```{julia}
+#| output: false
+function plot(x, y; linewidth::Int = 2, markersize::Int = 5*linewidth)
+    ###
+end
+```
+Note, however, that, unlike positional arguments, keyword arguments do not participate in method dispatch.
+Instead, keyword arguments are processed only after identifying the appropriate method based on its positional arguments and their types.
+
+Keyword arguments can be used together with a variable number of positional arguments, and in a similar fashion, we can also have additional keyword arguments:
+```{julia}
+#| output: false
+function plot(args...; linestyle = :solid, kwargs...)
+    ###
+end
+```
+Inside the `plot` function, `kwargs` is available as a key-value iterator over a named tuple.
+However, this syntax is most often used to pass on keyword arguments to another function or method along the lines of the following example:
+```{julia}
+#| output: false
+function plot(x, y, args...; linestyle = :solid, kwargs...)
+    p = plot(x, y; kwargs...)
+    setlinestyle!(p, linestyle)
+    ###
+    return p
+end
+```
+With this syntax, a keyword argument may be provided more than once, typically when splatting varargs and explicitly providing the argument, for example:
+```{julia}
+options = (linewidth = 2, markersize = 10)
+plot([0.0, 1.0], [1.0, 2.0]; options..., linewidth = 5)
+```
+In such a case, the rightmost occurrence takes precedence.
+This means that in the above example `linewidth = 5` is used, but if we switch the order of the arguments, the value `linewidth = 2` from the options tuple is used instead:
+```{julia}
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = 5, options...)
+```
+Keyword arguments may only appear multiple times when all occurrences but one are implicitly specified, e.g., as elements of iterables.
+Explicitly specifying the same keyword argument twice or more is not allowed and results in a syntax error:
+```{julia}
+#| error: true
+plot([0.0, 1.0], [1.0, 2.0]; linewidth = 3, linewidth = 5)
+```
+
+This concludes the discussion about passing arguments to a function.
+Next, we will see how to make objects callable.
+
+
+### Functors
+
+Functors are types whose objects are callable and thus behave like functions.
+This is easily achieved by adding methods to a special function that is identified by the type instead of a generic name:
+```{julia}
+struct Power
+    pow::Int
+end
+
+function (p::Power)(x)
+    x^p.pow
+end
+
+p = Power(5)
+p(2)
+```
+Functors are helpful for implementing concise interfaces in many problems, e.g., evaluation of polynomials, integration of differential equations, transfer functions, neural network layers, and many more.
+Moreover, functors are at the core of type constructors and closures, as will be discussed later in this chapter.
+
+
+### Anonymous functions and closures
+
+Anonymous functions are functions without an explicit name.
+We have already encountered them in [Chapter 1]{.PItalics custom-style="PItalics"}, but we briefly want to discuss some technical details in light of what we have learned in this chapter.
+
+Anonymous functions can be created in two equivalent ways:
+```{julia}
+x -> cos(x)^2 + sin(x)^2
+
+function (x)
+    cos(x)^2 + sin(x)^2
+end
+```
+Both declarations return a generic function object with a compiler-generated name based on consecutive numbering.
+An anonymous function that does not expect an argument can be defined by
+```{julia}
+() -> 42
+```
+On their own, such declarations are not particularly useful as they do not provide a convenient way for calling the declared function.
+In order to do so, they have to be assigned to some variable, as in the following example:
+```{julia}
+f = x -> cos(x)^2 + sin(x)^2
+```
+Now, the function can be called like any other function via the variable `f`:
+```{julia}
+f(2)
+```
+The main use case for anonymous functions is to pass them to other functions as arguments, for example, to the `map` function, as we have already seen in [Chapter 1]{.PItalics custom-style="PItalics"}:
+```{julia}
+map(x -> cos(x)^2 + sin(x)^2, [1.0, 2.0, 4.0])
+```
+
+Another common use case for anonymous functions is closures.
+These are functions that refer to their surrounding environment by capturing variables.
+```{julia}
+timestep = 0.1
+nexttimestep = x -> x + timestep
+nexttimestep(1.0)
+```
+A typical application of closures is the solution of a nonlinear system of equations of the form $f(x) = 0$, i.e., finding the roots $x$ of $f$.
+Many nonlinear solvers expect the function to solve for to have the interface `f!(y,x)` computing $y = f(x)$, so that $y$ is the value of the function $f$ for input $x$.
+More often than not, the function `f!` computing $f$ takes additional inputs other than `y` and `x`, e.g., configuration variables, temporary arrays, or additional static inputs.
+To pass a function with the correct interface to the solver, a closure is usually the simplest solution, cf. the following example:
+```{julia}
+function f!(y, x, t, params)
+    ###
+end
+
+function solve(f, x₀)
+    ###
+end
+
+parameters = (ω = 0.5, k = 2)
+t₀ = 0.0
+x₀ = rand(3)
+
+x = solve((y,x) -> f!(y, x, t₀, parameters), x₀)
+```
+Here, the function `f!` defines the nonlinear function whose zeros we want to determine.
+The first argument, `y`, is the value of `f`.
+The second argument, `x`, is the argument on which the function `f` is evaluted, e.g., the current state of a system of dynamical equations.
+The third argument, `t`, is an additional argument, e.g., time.
+The fourth argument, `params`, is a NamedTuple of parameters on which the function depends.
+The function `solve` performs the actual nonlinear solver step for the function `f` using `x₀` as an initial guess.
+After specifying values for the parameters, the argument `t`, and the initial guess for `x`, we call the `solve` method, passing as the first argument a closure with the expected interface that captures all the additional arguments of `f!`.
+
+
+### Local scope
+
+Anonymous functions are often defined within a local scope, e.g., within another function.
+The same is possible with generic, named functions:
+```{julia}
+function factory(x)
+    addmul2(y::Number) = 2(x + y)
+    addmul2(y::Int) = 2y
+    return addmul2
+end
+
+f = factory(2)
+f(2)
+```
+```{julia}
+f(2.0)
+```
+One should refrain from defining local methods conditionally, e.g., within an `if`-`else` clause, as this will obfuscate which method will actually be defined.
+Still, one can use anonymous functions in such situations.
+
+
+## Parametric methods
+
+Similar to types, method definitions can have type parameters.
+These typically arise from annotating arguments with parametric types.
+Parametric methods allow extracting type information from arguments, dispatching on specific parameter values, and matching compatible parameters of argument types.
+They are expressed using the same `where` syntax that we have already encountered in the section on `UnionAll` types in the previous chapter.
+
+The following method has one type parameter that is assigned to the type of its argument:
+```{julia}
+printtype(x::T) where {T} = println(T)
+```
+When the method is called, the value of `T` is the type of `x`.
+Within the signature or body of a method, method parameters can be used just like any other value.
+Parametric methods are commonly used in Julia to extract parameter values of parametric types.
+The following functions return the element type and the dimension of an array, respectively:
+```{julia}
+#| eval: false
+eltype(::AbstractArray{T,N}) where {T,N} = T
+ndims(::AbstractArray{T,N}) where {T,N} = N
+
+x = rand(3,4)
+println(eltype(x))
+println(ndims(x))
+```
+These methods have two type parameters, `T` and `N`, which are assigned to the type parameters of the parametric type `AbstractArray` and thus hold the values of these parameters when the methods are executed.
+This example allows for two interesting observations.
+First, if we have multiple parameters, they can be collected in braces, separated with commas, as in `where {T,N}` in the example.
+This syntax is equivalent to the nested expression `where N where T`.
+Second, if we are only interested in extracting type information, it is unnecessary to assign a variable name to the argument but only a type decorator.
+
+Method parameters can also be constrained in full analogy to type parameters.
+```{julia}
+isnumber(x::T) where {T <: Number} = true
+isnumber(x) = false
+```
+```{julia}
+isnumber(1.0)
+```
+```{julia}
+isnumber("1.0")
+```
+The first method is executed if the argument is an instance of `Number`, and the second method is elsewise.
+Defining function behavior by dispatch like this is an idiomatic design pattern in Julia.
+
+Another common pattern is the use of parameters for restricting the applicability of a method to compatible argument types.
+The following method appends an element to a vector, but only if the element type of the vector and the type of the additional value match:
+```{julia}
+append(a::Vector{T}, x::T) where {T} = [a..., x]
+append([1,2,3], 4)
+```
+If the types do not match, a `MethodError` is raised as no compatible method has been defined:
+```{julia}
+#| error: true
+append([1,2,3], 4.0)
+```
+
+Parametric methods are a truly powerful paradigm, facilitating general code while at the same time guaranteeing correct behavior, e.g., by restricting arguments to compatible types and facilitating lean implementations of function behavior by dispatch.
+
+
+## Constructors
+
+Now that we have learned the inners of functions and methods, it is time to discuss constructors in more detail.
+Constructors are functions that create new instances of composite types.
+They are invoked by applying the type name like a function.
+Being a function, the behavior of a constructor is defined by its method.
+
+We mentioned in the previous chapter that two default constructors are provided for composite types.
+Both take as many arguments as the type has fields, but one requires the type of each argument to match the exact type of the corresponding field, while the other accepts arguments of any type and tries to convert the arguments to the correct field types.
+Of course, no conversion is required if no type restrictions are applied.
+
+Often, these default constructors are all that is needed, but sometimes we need the constructor to do more than assign values to an object's fields.
+Typical examples include verifying or enforcing specific properties of the field values, so-called _invariants_, e.g., the positivity of a float, convenience constructors that compute some or all of the field values on the fly, or the initialization of recursive data structures.
+In such cases, we need to implement custom constructors.
+
+There are two types of constructors, outer and inner constructors, whose differences and different purposes we will discuss in the following.
+After that, we will elaborate on the specifics of parametric constructors and incomplete initialization.
+
+
+### Outer constructor methods
+
+The purpose of outer constructors is primarily to add functionality for object creation, such as convenience methods that compute the values for a struct's fields from some input parameters.
+
+For example, consider a struct holding temporary arrays for a Newton solver that solves a nonlinear equation of the form $y = f(x)$ with $x \in \mathbb{R}^n$ and $y \in \mathbb{R}^m$.
+The struct needs to store vectors for `x` and `y` and a matrix for the Jacobian $j = df/dx$ with $j \in \mathbb{R}^m \times \mathbb{R}^n$:
+```{julia}
+struct NewtonSolver{T}
+    x::Vector{T}
+    y::Vector{T}
+    j::Matrix{T}
+end
+```
+The default constructors expect three arrays for `x`, `y`, and `j`.
+However, we typically want to initialize this structure by providing only vectors for `x` and `y`.
+There is no need to initialize `j` to specific values, and its size can be inferred from the sizes of `x` and `y`.
+To be able to construct a `NewtonSolver` just from `x` and `y`, we need to add a convenience constructor:
+```{julia}
+function NewtonSolver(x::Vector{T}, y::Vector{T}) where {T}
+    NewtonSolver(zero(x), zero(y), zero(y * x'))
+end
+
+x = rand(3)
+y = rand(4)
+s = NewtonSolver(x, y)
+```
+This method calls one of the default constructors with the three arrays it expects.
+Similarly, we could add a constructor that takes a datatype and the vector lengths `m` and `n` and creates all arrays from scratch:
+```{julia}
+function NewtonSolver(::Type{T}, n::Int, m::Int) where {T}
+    x = zeros(T, n)
+    y = zeros(T, m)
+    j = zeros(T, m, n)
+    NewtonSolver(x, y, j)
+end
+NewtonSolver(Float64, 3, 4)
+```
+We may also want to add an additional constructor that assumes `Float64` as the default data type:
+```{julia}
+NewtonSolver(n, m) = NewtonSolver(Float64, n, m)
+NewtonSolver(3, 4)
+```
+The above constructor methods are called outer constructors as they are defined outside a type definition like regular methods.
+They are limited in that they can only create a new instance by calling another inner constructor method, either the automatically provided or a custom one.
+Thus, they are also not suited to enforce invariants or to construct self-referential objects.
+To achieve these tasks, we need custom inner constructor methods.
+ 
+
+### Inner constructor methods
+
+As the name suggests, inner constructor methods are defined within a type declaration.
+In contrast to outer constructors, they have access to a function called `new` that creates an instance of the respective type.
+If an inner constructor is defined, it is assumed that we want to override the default behavior, and therefore no default constructor method is provided.
+
+Consider a simple example of a type that stores two values and expects one to be larger than the other.
+We can enforce this invariant by adding an appropriate `@assert` statement in a custom inner constructor:
+```{julia}
+struct GreaterThanFooBar
+    foo
+    bar
+    function GreaterThanFooBar(foo, bar)
+        @assert bar > foo
+        new(foo, bar)
+    end
+end
+```
+The name of the inner constructor has to match the type's name.
+If we try to instantiate this type with incompatible arguments, an `AssertionError` is raised:
+```{julia}
+GreaterThanFooBar(1.0, 2.0)
+```
+```{julia}
+#| error: true
+GreaterThanFooBar(2.0, 1.0)
+```
+Note that invariants can only be enforced for immutable types, as the fields of mutable types can be altered at any time after instantiation.
+
+We could also add assertions like the above into an outer constructor.
+However, that would not guarantee that they are indeed always satisfied, as we could directly call one of the default inner constructors unaware of these constraints.
+As only inner constructors can create an instance of an object, only therein can constraints be enforced.
+
+The Julia coding guidelines suggest defining as few inner constructor methods as possible, namely those that explicitly take values for all fields, perform essential error checking, and enforce invariants.
+Convenience constructors that supply default values or compute initial data for the fields of a type should be implemented as outer constructors that call the inner constructors, which take care of consistency checks and instantiation.
+
+
+### Parametric constructor methods
+
+Constructors for parametric composite types have a few twists.
+With the default constructors, type parameters can either be provided explicitly or inferred from the types of the arguments.
+Recall the `ParametricFooBar` type from the previous chapter:
+```{julia}
+struct ParametricFooBar{T}
+    foo::T
+    bar::T
+end
+```
+It can be instantiated with an explicit value for `T` or with an implied value:
+```{julia}
+ParametricFooBar{Float64}(23, 42)
+```
+```{julia}
+ParametricFooBar(23, 42)
+```
+In the first example, the arguments are converted to the provided type.
+In the second example, the type parameter is implied by the type of the arguments.
+For this to work, the types of both arguments must agree.
+Otherwise, the type parameter cannot be inferred:
+```{julia}
+#| error: true
+ParametricFooBar(23.0, 42)
+```
+For parametric types, Julia provides an inner default constructor, which expects the type parameters to be provided, as well as an outer default constructor, which infers the parameter and passes it on to the inner constructor.
+These default constructors are equivalent to the following explicit definitions:
+```{julia}
+#| eval: false
+struct ParametricFooBar{T}
+    foo::T
+    bar::T
+    ParametricFooBar{T}(foo, bar) where {T} = new(foo, bar)
+end
+ParametricFooBar(foo::T, bar::T) where {T} = ParametricFooBar{T}(foo, bar)
+```
+Note that the outer constructor expects both arguments' values to be of the same type.
+
+The inner constructor `ParametricFooBar{T}` constitutes a different function for each value of `T`, just like the parametric type `ParametricFooBar{T}` constitutes a concrete type for each value of `T`.
+This is to say that, e.g., `ParametricFooBar{Float64}` and `ParametricFooBar{Float32}` are different constructor functions and not different methods of the same function.
+Each function, such as `ParametricFooBar{Float64}`, behaves like a non-parametric default inner constructor.
+
+It is also possible to define inner constructors that infer the type parameters.
+Let us reconsider our `NewtonSolver` above.
+It would make sense to add an inner constructor that ensures that all arrays are of compatible size:
+```{julia}
+struct NewtonSolverStrict{T}
+    x::Vector{T}
+    y::Vector{T}
+    j::Matrix{T}
+
+    function NewtonSolverStrict(x::Vector{T}, y::Vector{T}, j::Matrix{T}) where {T}
+        @assert axes(j,1) == axes(y,1)
+        @assert axes(j,2) == axes(x,1)
+        new{T}(x, y, j)
+    end
+end
+
+NewtonSolverStrict(zeros(3), zeros(4), zeros(4,3))
+```
+This constructor infers the type of the arrays and passes it on to `new` as a parameter.
+As this constructor prevents the generation of default constructors, the type parameter `T` cannot be set manually.
+
+
+### Incomplete initialization
+
+There is one more point we touched upon but did not yet discuss in detail, namely the construction of self-referential objects, or more generally, recursive data structures.
+
+Consider the following type that is supposed to store a reference to a value of itself:
+```{julia}
+#| eval: false
+struct MeMyselfAndI
+    ref::MeMyselfAndI
+end
+```
+This definition may seem innocent but try to instantiate an object of this type.
+You will quickly realize that you are facing a chicken and egg problem: in order to call the constructor of this type, you need to provide a value of the same type, but where does that very first instance come from?
+
+This problem can only be solved by making the type mutable and allowing for incomplete initialization so that we can create a `MeMyselfAndI` instance whose `ref` field does not refer to any value.
+The incomplete `MeMyselfAndI` instance can then be used to initialize another instance or set the reference to itself.
+We achieve this by calling the `new` function with fewer arguments than the number of fields in the type:
+```{julia}
+mutable struct MeMyselfAndI
+    ref::MeMyselfAndI
+    MeMyselfAndI() = (m = new(); m.ref = m)
+    MeMyselfAndI(m::MeMyselfAndI) = new(m)
+end
+```
+The first constructor creates an instance whose `ref` field is uninitialized, assigns a reference to itself, and returns the fully initialized object.
+The second constructor behaves like the default constructor, which was not provided automatically due to the definition of the first constructor.
+Let us do some quick experiments with this type:
+```{julia}
+m = MeMyselfAndI()
+```
+```{julia}
+m === m.ref === m.ref.ref
+```
+```{julia}
+MeMyselfAndI(m).ref === m
+```
+We observe the expected behavior. 
+Note Julia remarking that we have defined a circular reference.
+
+Inner constructors can also return objects with uninitialized fields, although this is not encouraged.
+Accessing an uninitialized field results in an immediate error.
+
+
+## Generic code and specialization
+
+
+
+
+
+## Coding guidelines
+
+
+
+
+
+## Case study: dispatch on empty types
+
+
+
+
+
+## Summary
+
+In this chapter, we learned the inner workings of functions and methods in Julia.
+We explored the concept of multiple dispatch and put it in perspective to single dispatch in traditional class-based object-oriented (CBOO) programming languages.
+We discussed why Julia is an object-oriented language although it is not class-based, even in a purer sense than many traditional object-oriented languages like C++ or Java.
+
+We learned all the details of defining functions and methods with positional arguments, keyword arguments, arbitrary numbers of arguments, arguments with and without default values, and how to define parametric functions, anonymous functions, closures, and functors.
+In light of this new knowledge, we revisited constructors, in particular the differences between inner and outer constructors, and how to achieve intricate tasks like enforcing invariants or the construction of self-referential objects.

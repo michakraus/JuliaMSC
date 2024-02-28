@@ -1,0 +1,798 @@
+# The Julia Language: Advanced Topics {#sec:julia-advanced}
+
+## Scope of Variables
+
+- certain constructs in the language introduce scope blocks, which are regions of code that are eligible to be the scope of some set of variables
+- the scope of a variable cannot be an arbitrary set of source lines; instead, it will always line up with one of these blocks
+- in Julia, there are two main types of scopes, *global scope* and *local scope*, where the latter can be nested
+- since Julia v1.5 there is a distinction between constructs which introduce a "hard scope" and those which only introduce a "soft scope", which affects whether shadowing a global variable by the same name is allowed or not
+- scopy constructs:
+
+Construct | Scope type   | Allowed within
+:---------|:-------------|:--------------
+REPL      | global       | global
+`module`  | global       | global
+`struct`  | local (soft) | global
+`macro`   | local (hard) | global
+`for`, `while`, `try` | local (soft) | global or local
+`let`, functions, comprehensions, generators | local (hard) | global or local
+
+- notably missing from this table are `begin` blocks and `if` blocks, which do not introduce new scopes
+
+- Julia uses *lexical scoping*, meaning that a function's scope does not inherit from its caller's scope, but from the scope in which the function was defined.
+```{julia}
+#| error: true
+module Bar
+    x = 1
+    foo() = x
+end
+```
+```julia
+julia> import .Bar
+
+julia> x = -1;
+
+julia> Bar.foo()
+Error: type DataType has no field foo
+```
+- thus lexical scope means that what a variable in a particular piece of code refers to can be deduced from the code in which it appears alone and does not depend on how the program executes
+- a scope nested inside another scope can "see" variables in all the outer scopes in which it is contained
+- outer scopes, on the other hand, cannot see variables in inner scopes
+- in a scope, each variable can only have one meaning, which is determined regardless of the order of expressions
+
+
+### Global Scope
+
+- Julia does not have an all-encompassing global scope, instead each module introduces a new global scope, separate from the global scope of all other modules
+- the interactive prompt (REPL) is in the global scope of the module `Main`
+- modules can introduce variables of other modules into their scope through the `using` or `import` statements or through qualified access using the dot-notation
+- a module is a namespace as well as a data structure associating names with values
+- while variable bindings can be read externally, they can only be changed within the module to which they belong
+
+```julia
+julia> module A
+                  a = 1 # a global in A's scope
+              end;
+
+julia> module B
+                  module C
+                      c = 2
+                  end
+                  b = C.c    # read a variable of a nested module through a qualified access
+                  import ..A # makes module A available
+                  d = A.a    # reading a variable from an imported module is ok
+                  A.a = 2    # changing a variable of an imported module throws below error
+              end;
+Error: cannot assign variables in other modules
+
+julia> module D
+                  b = a # errors as D's global scope is separate from A's
+              end;
+Error: UndefVarError: a not defined
+```
+
+
+### Local Scope
+
+- a new local scope is introduced by most code blocks (see list above)
+- in any local scope, writing `local x` declares a new local variable in that scope, regardless of whether there is already a variable named `x` in an outer scope or not
+- while some programming languages require explicitly declaring new variables before using them, Julia, like many other dynamic languages, considers assignment to a new variable in a local scope to implicitly declare that variable as a new local
+- specifically, when `x = <value>` occurs in a local scope, Julia applies the following rules to decide what the expression means based on where the assignment expression occurs and what x already refers to at that location:
+
+1. **Existing local:** If `x` is *already a local variable*, then the existing local `x` is
+   assigned;
+2. **Hard scope:** If `x` is *not already a local variable* and assignment occurs inside of any
+   hard scope construct (`let` block, function or macro body, comprehension, or
+   generator), a new local named `x` is created in the scope of the assignment;
+3. **Soft scope:** If `x` is *not already a local variable* and all of the scope constructs
+   containing the assignment are soft scopes (loops, `try`/`catch` blocks, or `struct` blocks), the
+   behaviour depends on whether the global variable `x` is defined:
+   * if global `x` is *undefined*, a new local named `x` is created in the scope of the
+     assignment;
+   * if global `x` is *defined*, the assignment is considered ambiguous:
+     * in *non-interactive* contexts (files, eval), an ambiguity warning is printed and a new
+       local is created;
+     * in *interactive* contexts (REPL, notebooks), the global variable `x` is assigned.
+- example: assignment inside of a hard scope, namely a function body, when no local variable by that name already exists
+```{julia}
+#| error: true
+module TestModule1
+    function greet()
+        x = "hello" # new local
+        println(x)
+    end
+
+    greet()
+    println(x)
+end
+```
+
+- inside of the `greet` function, the assignment `x = "hello"` causes `x` to be a new local variable in the function's scope
+- the assignment occurs in local scope and there is no existing local x variable
+- since `x` is local, it doesn't matter if there is a global named `x` or not
+- example: define `x = 123` before defining and calling greet
+```{julia}
+module TestModule2
+    x = 123 # global
+
+    function greet()
+        x = "hello" # new local
+        println(x)
+    end
+
+    greet()
+    println(x)
+end
+```
+
+- since the `x` in greet is local, the value (or lack thereof) of the global `x` is unaffected by calling `greet`
+- the hard scope rule doesn't care whether a global named `x` exists or not: assignment to `x` in a hard scope is local (unless `x` is declared global)
+- example: there is already a local variable named `x`, in which case `x = <value>` always assigns to this existing local `x`
+    - the function `sum_to` computes the sum of the numbers from one up to `n`
+```{julia}
+#| error: true
+module TestModule3
+    function sum_to(n)
+        s = 0 # new local
+        for i in 1:n
+            s = s + i # assign existing local
+        end
+        return s # same local
+    end
+
+    println(sum_to(10))
+    println(s)
+end
+```
+- as in the previous example, the first assignment to `s` at the top of `sum_to` causes `s` to be a new local variable in the body of the function
+- the `for` loop has its own inner local scope within the function scope
+- at the point where `s = s + i` occurs, `s` is already a local variable, so the assignment updates the existing `s` instead of creating a new local
+- since `s` is local to the function `sum_to`, calling the function has no effect on the global variable `s` (should it exist)
+- modify the previous example to save the sum `s + i` in a variable `t` before updating `s`
+```{julia}
+module TestModule4
+    function sum_to(n)
+        s = 0 # new local
+        for i in 1:n
+            t = s + i # new local `t`
+            s = t # assign existing local `s`
+        end
+        return s, @isdefined(t)
+    end
+
+    println(sum_to(10))
+end
+```
+- this version returns `s` as before but it also uses the `@isdefined` macro to return a boolean indicating whether there is a local variable named `t` defined in the function's outermost local scope
+- because of the hard scope rule, there is no `t` defined outside of the `for` loop body
+- since the assignment to `t` occurs inside of a function, which introduces a hard scope, the assignment causes `t` to become a new local variable in the local scope where it appears, i.e. inside of the loop body
+- even if there were a global named `t`, it would make no difference: the hard scope rule is not affected by anything in global scope
+- example: move the body of `greet` into a `for` loop, which is soft rather than hard
+```{julia}
+#| error: true
+module TestModule5
+    for i in 1:3
+        x = "hello" # new local
+        println(x)
+    end
+
+    println(x)
+end
+```
+
+- since the global `x` is not defined when the `for` loop is evaluated, the first clause of the soft scope rule applies and `x` is created as local to the `for` loop and therefore global `x` remains undefined after the loop executes
+- example: move the body of `sum_to` into global scope, fixing its argument to `n = 10`
+```{julia}
+#| error: true
+module TestModule6
+    s = 0 # new global
+    for i in 1:10
+        t = s + i # new local `t`
+        s = t # assign global `s`
+    end
+    println((s, @isdefined(t)))
+end
+```
+
+- second try: explicitly declare `s` as a global variable inside the `for` loop
+```{julia}
+module TestModule7
+    s = 0 # new global
+    for i in 1:10
+        global s
+        t = s + i # new local `t`
+        s = t # assign global `s`
+    end
+    println((s, @isdefined(t)))
+end
+```
+
+- remember: in a scope, each variable can only have one meaning, and that meaning is determined regardless of the order of expressions
+- in the previous example, the presence of the expression `s = t` in the loop causes `s` to be local to the loop, which means that it is also local when it appears on the RHS of `t = s + i`, even though that expression appears first and is evaluated first
+```{julia}
+#| error: true
+module TestModule8
+    s = 0 # new global
+    for i in 1:10
+        t = s + i # new local `t`
+        s = t # assign global `s`
+    end
+end
+```
+- one might imagine that the `s` on the first line of the loop could be global while the `s` on the second line of the loop is local, but that is not possible since the two lines are in the same scope block and each variable can only mean one thing in a given scope
+- if the assignment `s = t` is removed, `s` is unambiguously interpreted as the global `s`
+```julia
+module TestModule9
+    s = 0 # new global
+    for i in 1:10
+        t = s + i # new local `t`
+    end
+end;
+```
+- in Julia v1.5, the REPL uses soft scope for top-level expressions, so that an assignment inside a scope block such as a `for` loop automatically assigns to a global variable if one has been defined already (same behaviour as in a function body)
+```julia
+julia> s = 0; # global
+
+julia> for i in 1:10
+                  t = s + i # new local `t`
+                  s = t # assign global `s`
+              end
+
+julia> s # global
+55
+```
+- if this code appears in a top-level scope in a file, Julia v1.5 prints an ambiguity warning and throws an undefined variable error
+```julia
+julia> code = """
+       s = 0 # global
+       for i in 1:10
+           t = s + i
+           s = t # ambiguous assignment: global or local?
+       end
+       s # global
+       """;
+julia> include_string(Main, code)
+┌ Warning: Assignment to `s` in soft scope is ambiguous because a global variable by the same name exists: `s` will be treated as a new local. Disambiguate by using `local s` to suppress this warning or `global s` to assign to the existing global variable.
+└ @ string:4
+ERROR: LoadError: UndefVarError: s not defined
+```
+here `include_string` is used to evaluate code as though it were the contents of a file
+
+
+### Soft Scope
+
+- a few words should be said about why the ambiguous soft scope case is handled differently in interactive and non-interactive contexts
+    - Why doesn't it just work like the REPL everywhere?
+    - Why doesn't it just work like in files everywhere?
+-  in Julia ≤ v0.6, all global scopes did work like the current REPL: when `x = <value>` occurred in a loop or `try`/`catch` block, but outside of a function body, a `let` block or a comprehension, whether `x` should be local to the loop was decided based on whether a global named `x` was defined or not
+- this behaviour is intuitive and convenient since it approximates the behaviour inside of a function body as closely as possible and makes it easy to move code back and forth between a function body and the REPL when trying to debug the behaviour of a function
+- however, it is bad for programming "at scale" and allows for "spooky action at a distance" — when someone else adds a new global far away, possibly in a different file, the code suddenly changes meaning and either breaks noisily or, worse still, silently does the wrong thing — which is something that good programming language designs should prevent
+- the meaning of a small piece of code like the following is quite obvious
+```julia
+s = 0
+for i in 1:10
+    s += i
+end
+```
+- the intention is to modify the existing global variable `s`
+- however, not all real world code is so short or so clear
+```julia
+x = 123
+
+# much later, maybe in a different file
+
+for i in 1:10
+    x = "hello"
+    println(x)
+end
+
+# much later, maybe in yet another file
+# or maybe back in the first one where `x = 123`
+
+y = x + 234
+```
+- it is not quite obvious what should happen here, but it seems probable that the intention is for `x` to be local to the `for` loop
+- with the Julia ≤ v0.6 behaviour, it is especially concerning that someone might have written the `for` loop first, had it working just fine, but later when someone else adds a new global far away the code changes meaning
+- in Julia v1.0 the rules for scope were simplified: in any local scope, assignment to a name that wasn't already a local variable created a new local variable
+- this eliminated the notion of soft scope entirely as well as removing the potential for spooky action and consequently uncovered a significant number of bugs, vindicating the choice to get rid of it
+- the first example needs to be rewritten accordingly as
+```julia
+s = 0
+for i in 1:10
+    global s += i
+end
+```
+- there are two main issues with requiring global for this kind of top-level code:
+    - it is no longer convenient to copy and paste the code from inside a function body into the REPL to debug it—you have to add `global` annotations and then remove them again to go back
+    - beginners will write this kind of code without the `global` and have no idea why their code does not work: the error that they get is that `s` is undefined, which does not seem to enlighten anyone who happens to make this mistake
+- as of Julia v1.5, this code works without the `global` annotation in interactive contexts like the REPL or Jupyter notebooks (just like Julia v0.6) and in files and other non-interactive contexts, it prints this very direct warning
+```plain
+Assignment to s in soft scope is ambiguous because a global variable by the
+same name exists: s will be treated as a new local. Disambiguate by using
+local s to suppress this warning or global s to assign to the existing global
+variable.
+```
+
+- this addresses both issues while preserving the "programming at scale" benefits of the Julia v1.0 behaviour
+  - in the REPL copy-and-paste debugging works and beginners don't have any issues
+  - any time someone either forgets a `global` annotation or accidentally shadows an existing `global` with a `local` in a soft scope, which would be confusing anyway, they get a nice clear warning
+  - global variables have no spooky effect on the meaning of code that may be far away
+- an important property of this design is that any code that executes in a file without a warning will behave the same way in a fresh REPL
+- on the flip side, if you take a REPL session and save it to file, if it behaves differently than it did in the REPL, then you will get a warning
+
+### For Loops
+
+
+
+
+
+- the loop variable `i` is visible only inside of the `for` loop, and not outside/afterwards
+```{julia}
+#| error: true
+for i in 1:3
+    println(i)
+end
+
+println(i)
+```
+- even if a variable with the same name as the loop variable exists, the `for` loop does not modify it but creates a local loop variable
+```{julia}
+i = 0
+
+for i in 1:2
+    println(i)
+end
+
+println(i)
+```
+- in order to use an outer local variable `i`, the `outer` keyword has to be specified
+```{julia}
+function test_loop()
+    i = 0;
+    for outer i in 1:3
+        println(i)
+    end
+    println(i)
+end
+
+test_loop()
+```
+- one can explicitly create variables local to the `for` loop that shadow outer variables
+```{julia}
+function test_loop()
+    x = 0;
+    for i in 1:3
+        local x = i^2
+        println(x)
+    end
+    println(x)
+end
+
+test_loop()
+```
+
+
+- both variables (`i` and `j`) are set to their current iteration values each time the inner loop runs, therefore, assignments to `i` will not be visible to subsequent iterations
+```{julia}
+for i in 1:2, j in 3:4
+    println((i, j))
+    i = 0
+end
+```
+- if this example is rewritten to use a `for` keyword for each variable, then the output would be different
+```{julia}
+for i in 1:2
+    for j in 3:4
+        println((i, j))
+        i = 0
+    end
+end
+```
+
+
+
+### Let Blocks
+
+- unlike assignments to local variables, `let` statements allocate new variable bindings
+- an assignment modifies an existing value location, and `let` creates new locations
+- the `let` syntax accepts a comma-separated series of assignments and variable names
+```julia
+julia> x, y, z = -1, -1, -1;
+
+julia> let x = 1, z
+                  println("x: $x, y: $y") # x is local variable, y the global
+                  println("z: $z") # errors as z has not been assigned yet but is local
+              end
+x: 1, y: -1
+Error: UndefVarError: z not defined
+```
+- the assignments are evaluated in order, with each right-hand side evaluated in the scope before the new variable on the left-hand side has been introduced
+- therefore it makes sense to write something like `let x = x` since the two `x` variables are distinct and have separate storage
+- since the begin construct does not introduce a new scope, one can use a zero-argument `let` to introduce a new scope block without creating any new bindings
+```julia
+julia> let
+                  local x = 1
+                  let
+                      local x = 2
+                  end
+                  x
+              end
+1
+```
+- example: create and store two closures that return the variable `i`
+```julia
+julia> Fs = Vector{Any}(undef, 2); i = 1;
+
+julia> while i <= 2
+                  Fs[i] = ()->i
+                  global i += 1
+              end
+
+julia> Fs[1]()
+3
+
+julia> Fs[2]()
+3
+```
+- the two closures behave identically and return the same variable `i`
+- we can use `let` to create a new binding for `i`
+```julia
+julia> Fs = Vector{Any}(undef, 2); i = 1;
+
+julia> while i <= 2
+                  let i = i
+                      Fs[i] = ()->i
+                  end
+                  global i += 1
+              end
+
+julia> Fs[1]()
+1
+
+julia> Fs[2]()
+2
+```
+
+
+### Loops
+
+- in loops and comprehensions, new variables introduced in their body scopes are freshly allocated for each loop iteration, as if the loop body were surrounded by a let block
+```julia
+julia> Fs = Vector{Any}(undef, 2);
+
+julia> for j in 1:2
+                  Fs[j] = ()->j
+              end
+
+julia> Fs[1]()
+1
+
+julia> Fs[2]()
+2
+```
+- a for loop or comprehension iteration variable is always a new variable
+```julia
+julia> function f()
+                  i = 0
+                  for i in 1:3
+                      # empty
+                  end
+                  return i
+              end;
+
+julia> f()
+0
+```
+- reusing an existing local variable as the iteration variable can be done by adding the `outer` keyword
+
+
+### Constants
+
+- the keyword `const` is used to declare global variables whose values will not change
+```julia
+julia> const α = 10
+10
+```
+- multiple variables can be declared within a single `const`
+```julia
+julia> const β, γ = 7, 11
+(7, 11)
+```
+- `const` only applies to one `=` operation, therefore 
+```julia
+julia> const μ = ν = 1
+1
+```
+declares `μ` to be constant but not `ν`; on the other hand
+```julia
+julia> const ϕ = const ψ = 1
+1
+```
+declares both `ϕ` and `ψ` constant
+- `const` only affects the variable binding but "constant-ness" does not extend into mutable containers (such as an array), which may still be modified
+- special top-level assignments, such as those performed by the `function` and `struct` keywords, are constant by default
+- the `const` declaration should only be used in global scope on global variables; local constant declarations are currently not supported
+
+- when one tries to assign a value to a variable that is declared constant the following scenarios are possible
+- if a new value has a different type than the type of the constant an error is thrown
+```julia
+julia> const c1 = 1.0
+1.0
+
+julia> c1 = 1
+Error: invalid redefinition of constant c1
+```
+- if a new value has the same type as the constant then a warning is printed:
+```julia
+julia> const c2 = 1.0
+1.0
+
+julia> c2 = 2.0
+2.0
+```
+- if an assignment would not result in the change of variable value no message is given
+```julia
+julia> const c3 = 100
+100
+
+julia> c3 = 100
+100
+```
+- note that although sometimes possible, changing the value of a `const` variable is strongly discouraged, and is intended only for convenience during interactive use
+
+
+
+
+## Conversion and Promotion
+
+
+
+- in Julia, no automatic casting or conversion of function arguments is ever performed: all conversion in Julia is non-magical and completely explicit
+
+
+- still Julia's system for conversion and promotion of arguments of mathematical operators to a common type can sometimes be indistinguishable from magic
+
+
+- in the following we explain how this promotion system works, how to extend it to new types and how to apply it to functions besides built-in mathematical operators
+
+
+- in Julia, mathematical operators are just functions with special syntax, and the arguments of functions are never automatically converted; nevertheless one may observe that applying mathematical operations to a wide variety of mixed argument types is possible
+
+
+- this is just an extreme case of polymorphic multiple dispatch: Julia comes with pre-defined catch-all dispatch rules for mathematical operators, invoked when no specific implementation exists for some combination of operand types
+
+
+- these catch-all rules first promote all operands to a common type using user-definable promotion rules, and then invoke a specialized implementation of the operator in question for the resulting values, now of the same type
+
+
+- user-defined types can easily participate in this promotion system by defining methods for conversion to and from other types, and providing a handful of promotion rules defining what types they should promote to when mixed with other types
+
+
+### Conversion
+
+
+- the standard way to obtain a value of a type `T` is to call the type's constructor `T(x)`
+```julia; term=true
+Float64(12)
+```
+
+- there are many cases where it is convenient to convert a value from one type to another without the programmer asking for it explicitly
+
+
+- example: assigning a value into an array: if `A` is a `Vector{Float64}`, the expression `A[1] = 2` should work by automatically converting the `2` from `Int` to `Float64`, and storing the result in the array
+
+
+- this is done via the `convert` function, which generally takes two arguments: the first is a type object and the second is a value to convert to that type
+```julia; term=true
+x = 12
+typeof(x)
+convert(UInt8, x)
+typeof(convert(UInt8, x))
+convert(AbstractFloat, x)
+typeof(convert(AbstractFloat, x))
+```
+
+
+- the `convert` function is also applicable to more complicated types
+```julia; term=true
+a = Any[1 2 3; 4 5 6]
+convert(Array{Float64}, a)
+```
+
+- conversion is not always possible, in which case a `MethodError` is thrown indicating that `convert` doesn't know how to perform the requested conversion
+```julia; term=true
+convert(AbstractFloat, "foo")
+```
+
+- some languages consider parsing strings as numbers or formatting numbers as strings to be conversions and some will even perform conversion for you automatically
+
+
+- as most strings are not valid representations of numbers, and only a very limited subset of them are, in Julia the dedicated `parse` function must be used to perform this operation, making it more explicit
+
+
+- the following Julia constructs call `convert`:
+    - assigning to an array converts to the array's element type
+    - assigning to a field of an object converts to the declared type of the field
+    - constructing an object with `new` converts to the object's declared field types
+    - assigning to a variable with a declared type (e.g. `local x::T`) converts to that type
+    - a function with a declared return type converts its return value to that type
+    - passing a value to `ccall` converts it to the corresponding argument type
+
+
+- `convert` will only convert between types that represent the same basic kind of thing, e.g. different representations of numbers, or different string encodings
+
+
+- `convert` is usually lossless: converting a value to a different type and back again should result in the exact same value; lossy conversions are usually not supported
+```julia; term=true
+convert(Int, 12.0)
+convert(Int, 12.5)
+```
+
+- the behaviour of `convert(T, x)` appears to be nearly identical to the constructor `T(x)`, and indeed, it usually is
+
+
+- however, there is a key semantic difference: since `convert` can be called implicitly, its methods are restricted to cases that are considered "safe" or "unsurprising"
+
+
+- there are certain cases where constructors differ from `convert`:
+    - constructors for types unrelated to their arguments: some constructors do not implement the concept of "conversion", e.g., `Timer(2)` creates a 2-second timer, which is not really a "conversion" from an integer to a timer
+    - mutable collections: `convert(T, x)` is expected to return the original `x` if `x` is already of type `T`; in contrast, if `T` is a mutable collection type then `T(x)` should always make a new collection (copying elements from `x`)
+    - constructors that do not return instances of their own type: in *very rare* cases it might make sense for the constructor `T(x)` to return an object not of type `T`, e.g. if a wrapper type is its own inverse, such as `Flip(Flip(x)) === x`
+    - wrapper types: for some types which "wrap" other values, the constructor may wrap its argument inside a new object even if it is already of the requested type, `convert`, on the other hand, would just return its arguments since it is already of the requested type
+```julia; term=true
+struct MyWrapper
+    x
+end
+v = MyWrapper(1)
+w = MyWrapper(v)
+convert(MyWrapper, v)
+```
+
+
+
+### Defining New Conversions
+
+- when defining a new type, initially all ways of creating it should be defined as constructors
+
+
+- if it becomes clear that implicit conversion would be useful, and that some constructors meet the above "safety" criteria, then `convert` methods can be added
+
+
+- these methods are typically quite simple, as they only need to call the appropriate constructor, for example
+```julia; eval=false
+convert(::Type{MyType}, x) = MyType(x)
+```
+
+- the type of the first argument of this method is a singleton type, `Type{MyType}`, the only instance of which is `MyType`; thus, this method is only invoked when the first argument is the type value `MyType`
+
+
+- notice the syntax used for the first argument: the argument name is omitted prior to the `::` symbol, and only the type is given
+
+
+- this is the syntax in Julia for a function argument whose type is specified but whose value does not need to be referenced by name; since the type is a singleton, we already know its value without referring to an argument name
+
+
+- for some abstract types all instances are by default considered "sufficiently similar" that a universal `convert` definition is provided in Julia `Base`
+
+
+- example: the following definition states that it is valid to convert any `Number` type to any other by calling a 1-argument constructor
+```julia; eval=false
+convert(::Type{T}, x::Number) where {T<:Number} = T(x)
+```
+
+- this means that new `Number` types only need to define constructors, since this definition will handle `convert` for them
+
+
+- an identity conversion is also provided to handle the case where the argument is already of the requested type
+```julia; eval=false
+convert(::Type{T}, x::T) where {T<:Number} = x
+```
+
+- similar definitions exist for `AbstractString`, `AbstractArray`, and `AbstractDict`
+
+
+
+### Promotion
+
+- promotion refers to converting values of mixed types to a single common type
+
+
+- it is generally implied that the common type to which the values are converted can faithfully represent all of the original values
+
+
+- in this sense, the term "promotion" is appropriate: the values are converted to a "greater" type, which can represent all of the input values in a single common type
+
+
+- it is important not to confuse this with object-oriented (structural) super-typing, or Julia's notion of abstract super-types: promotion has nothing to do with the type hierarchy, and everything to do with converting between alternate representations
+
+
+- example: although every `Int32` value can also be represented as a `Float64` value, `Int32` is not a subtype of `Float64`
+
+
+- in Julia promotion to a common "greater" type is performed by the `promote` function
+
+
+- it takes any number of arguments, and returns a tuple of the same number of values, converted to a common type, and throws an exception if promotion is not possible
+
+
+- the most typical application of promotions is the definition of catch-all methods 
+```julia; eval=false
++(x::Number, y::Number) = +(promote(x,y)...)
+```
+
+- this method definition says that in the absence of more specific rules for adding pairs of numeric values, promote the values to a common type and then try again
+
+
+- in outer constructors methods `promote` allows constructor calls with mixed types to delegate to an inner type with fields promoted to an appropriate common type
+```julia; eval=false
+Rational(n::Integer, d::Integer) = Rational(promote(n,d)...)
+```
+
+
+
+### Promotion of Numbers
+
+- common use case for promotion: convert numeric arguments to a common type:
+```julia; term=true
+promote(1, 2.5)
+promote(1, 2.5, 3)
+promote(2, 3//4)
+promote(1, 2.5, 3, 3//4)
+promote(1.5, im)
+promote(1 + 2im, 3//4)
+```
+
+- floating-point values are promoted to the largest of the argument types
+
+
+- integer values are promoted to the larger of either the native machine word size or the largest integer argument type
+
+
+- mixtures of integers and floating-point values are promoted to a floating-point type big enough to hold all the values
+
+
+- integers mixed with rationals are promoted to rationals
+
+
+- rationals mixed with floats are promoted to floats
+
+
+- complex values mixed with real values are promoted to the appropriate kind of complex value
+
+
+### Defining Promotion Rules
+
+- in principle, one could define methods for the `promote` function directly; this would require many redundant definitions for all possible permutations of argument types
+
+
+- instead, the behaviour of promote is defined in terms of an auxiliary function called `promote_rule`, which one can provide methods for
+
+
+- the `promote_rule` function takes a pair of type objects and returns another type object, to which instances of the argument types will be promoted
+
+
+- example: a pair of 64-bit and 32-bit floating-point values should be promoted to 64-bit floating-point
+```julia; eval=false
+promote_rule(::Type{Float64}, ::Type{Float32}) = Float64
+```
+
+- the promotion type does not need to be one of the argument types
+```julia; eval=false
+promote_rule(::Type{BigInt}, ::Type{Float64}) = BigFloat
+```
+
+- one does not need to define both `promote_rule(::Type{A}, ::Type{B})` and `promote_rule(::Type{B}, ::Type{A})`; the symmetry is implied by the way `promote_rule` is used in the promotion process
+
+
+- `promote_rule` is used by a second function, `promote_type`, which, given any number of type objects, returns the common type to which those values should be promoted
+```julia; term=true
+promote_type(Int8, Int64)
+```
+
+- `promote_type` is used inside of `promote` to determine what type argument values should be converted to for promotion
+
+
+
+
+## Meta Programming
+

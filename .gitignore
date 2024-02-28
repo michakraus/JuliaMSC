@@ -1,0 +1,12 @@
+.luarc.json
+.quarto
+.vscode
+_book
+_chapters
+build
+packt
+Manifest.toml
+
+/src/images/*.png
+
+/.luarc.json

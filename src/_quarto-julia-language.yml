@@ -1,0 +1,10 @@
+project:
+  output-dir: _chapters
+
+book:
+  title: "Basics of the Julia Language"
+  chapters:
+    - index.qmd
+    - content/julia-language.qmd
+
+toc: false

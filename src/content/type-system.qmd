@@ -1,0 +1,961 @@
+```{julia}
+#| echo: false
+using Base: issingletontype
+```
+
+# Julia's Type System {#sec:type-system}
+
+Julia's type system, together with its use of the multiple dispatch paradigm (explained in the next chapter), is one of the outstanding features of Julia, making it a powerful and expressive programming language.
+In this chapter, we will discuss all important aspects of types and working with types in Julia.
+After acquiring basic knowledge about type systems in general and the characteristics of Julia's type system in particular, we will discuss the different kinds of types Julia provides (abstract, concrete, primitive, parametric), how they are defined, how they interact and relate to each other, and how to use them effectively and efficiently.
+We will cover the following topics:
+
+- Types, variables, and values
+- Type systems
+- Working with types
+- Different types of types
+- Parametric types
+- Type set theory
+- UnionAll types
+- Type unions
+- Type introspection
+
+Before we can dive into the specifics of Julia's type system, we first need to agree on some terminology that is, unfortunately, used differently in the context of different programming languages.
+
+
+## Types, variables, and values
+
+Programming languages such as C++ distinguish between types, objects, values, variables, references, and pointers (see e.g. Bjarne Stroustrop's definitions of these terms in [The C++ Programming Language]{.PItalics custom-style="PItalics"} or [A Tour of C++]{.PItalics custom-style="PItalics"}).
+Unfortunately, these terms are not used consistently across different programming languages.
+Moreover, Julia only discriminates between types, values, and variables. 
+It is essential to define and clarify the meaning and understand the difference and interplay between these concepts.
+
+A [type]{.PKeyword custom-style="PKeyword"} specifies what kind of data an object represents, e.g., a number, a string, some data collection, or a function.
+Types provide important information to the computer, e.g., how much memory is needed to create an object and how to access it.
+
+A [value]{.PKeyword custom-style="PKeyword"} is some entity in memory representing a certain kind of data.
+A [variable]{.PKeyword custom-style="PKeyword"} is a name used to access a value.
+It can be thought of as a reference to a location in memory.
+
+A value can be assigned to several variables or no variable at all.
+A variable can at most refer to one value.
+It can also be left uninitialized and thus not refer to any value.
+
+A value always has a fixed, well-defined type.
+In Julia, variables do not have types; they are just names that refer to values.
+However, Julia allows to restrict the type of values that can be assigned to a variable.
+
+[Variable declaration]{.PKeyword custom-style="PKeyword"} refers to the process of specifying an identifier, and [variable assignment]{.PKeyword custom-style="PKeyword"} refers to determining which value a variable should refer to.
+While many programming languages require these to be separate processes, Julia considers the assignment of a value to a nonexisting variable as the implicit declaration of that variable.
+Nonetheless, declaring a variable without assigning a value is also possible using the `global` and `local` keywords, e.g.,
+```{julia}
+global x
+```
+The details of global and local variables will be discussed in the section on variable scopes.
+
+
+## Type systems
+
+Every programming language has a system of [type checking]{.PKeyword custom-style="PKeyword"}, which is the process of verifying and enforcing type constraints.
+This system ensures that only values of the correct types are used at each step of a program thus minimizing errors during execution. 
+It is important to understand the differences between dynamic and static type systems, explicit and implicit type systems, as well as strong and weak type systems.
+These terms are used to characterize how a programming language handles data types, which significantly impacts how to write, test, and maintain code.
+
+Unfortunately, these concepts are often confounded and falsely identified.
+Static typing is often mistaken as explicit typing and dynamic typing as implicit typing.
+Similarly, static type systems are often equated with compiled languages and dynamic type systems with interpreted languages.
+However, these are all different concepts that need to be considered separately.
+Both static and dynamic type systems can be implicit or explicit, and both compiled or interpreted languages can be statically or dynamically typed.
+
+In the following, we try to clarify each of these terms before classifying Julia's type system in terms of these concepts.
+
+
+### Static vs. dynamic type systems
+
+With [static type systems]{.PKeyword custom-style="PKeyword"}, the type of every expression must be computable without executing the program, providing a limited form of program verification.
+With [dynamic type systems]{.PKeyword custom-style="PKeyword"}, fewer such a priori checks can be performed as type information on all the values manipulated by the program is available only at runtime.
+Therefore dynamically typed languages are prone to certain runtime errors that can be detected only by static type checking.
+Typically this amounts to an operation being applied to a value with a type not supported by the operation.
+Such problems can be quite a challenge to debug. An inapplicable operation may occur long after the original programming mistake that caused the value to have the wrong type.
+Therefore programming practices such as unit testing and test-driven development are particularly important with dynamically typed languages.
+
+In dynamically type-checked languages, some kind of [runtime type information (RTTI)]{.PKeyword custom-style="PKeyword"} containing a reference to the appropriate type is attached to each value.
+As this information has to be retrieved repeatedly at every execution of the program, languages with dynamic type systems often involve higher computational costs and memory demands than languages with static type systems.
+Moreover, the lack of type information at compile time often does not allow for the level of optimization possible with statically type-checked languages.
+The latter can produce optimized machine code that is stripped of type checks, as those have already been performed ahead of runtime and do not need to store any runtime type information.
+
+Most classical programming languages are either statically typed or dynamically typed. However, some languages allow parts of a program to be statically typed, with other parts dynamically typed.
+This is referred to as [gradual typing]{.PKeyword custom-style="PKeyword"}.
+
+
+### Explicit vs. implicit type systems
+
+With explicit type systems, the programmer must manually declare the type of each variable.
+Implicit type systems use type inference to deduce the type of values, thus obviating the need to declare them explicitly.
+In explicit typing, types are associated with variables, not values.
+In implicit typing, types are associated with values, not variables.
+Many languages that support implicit typing also allow for explicit typing where needed.
+
+
+### Strong vs. weak type systems
+
+The concepts of [strongly]{.PKeyword custom-style="PKeyword"} vs. [weakly typed]{.PKeyword custom-style="PKeyword"} languages are not as well-defined as those discussed above.
+Typically, strong typing refers to languages that enforce typing rules strongly, meaning they do not allow any automatic type conversions at all or only such conversions that do not lose information.
+If lossy type conversions are allowed, the language is referred to as weakly typed.
+
+
+### Nominal vs. structural type systems
+
+[Nominal]{.PKeyword custom-style="PKeyword"} (or [nominative]{.PKeyword custom-style="PKeyword"}) means name-based.
+In nominal type systems, the equivalence of data types and the hierarchical relationships between types are established by the names of the types and explicit declarations.
+Two values are considered type-compatible if and only if they are of the same type, and a type is considered a subtype of another type only if this is explicitly declared.
+
+[Structural]{.PKeyword custom-style="PKeyword"} means property-based.
+In structural type systems, the equivalence of data types and the hierarchical relationships between types are established by the structure of the types instead of their names.
+Two values are considered type-compatible if all their properties are matching.
+For example, two structs are considered equivalent if they have the same number and kind of fields, even if they are defined independently as separate types.
+If one type has all the properties of another type, but not vice versa, the first type is considered a subtype of the second.
+For example, if type A is a struct with three fields, and type B is a struct with five fields, where the types of the first three fields match those of the fields in type A, then type B is considered a subtype of type A.
+
+
+### Julia's type system
+
+In terms of the concepts defined above, Julia's type system is dynamic, implicit, strong and nominal.
+Moreover, Julia's type system is [parametric]{.PKeyword custom-style="PKeyword"}, meaning that types can be parameterized by other types, symbols, numbers, bools, or tuples.
+
+Like in most other dynamically typed languages, methods in Julia are polymorphic by default.
+This means methods will accept values of any type unless their argument types are restricted.
+Such type restrictions can be used to assure code correctness, e.g., to avoid a method being applied to some type that is not supported by all the operations in the method.
+More importantly, it facilitates method dispatch on the types of function arguments. This aspect will be discussed in detail in the next chapter.
+
+Julia encourages writing generic code, which means applying as few type restrictions as necessary to guarantee the ability of a method to operate correctly on its input data or to dispatch between different methods of a function.
+
+Julia distinguishes between [abstract types]{.PKeyword custom-style="PKeyword"} and [concrete types]{.PKeyword custom-style="PKeyword"}.
+The difference is that concrete types can be instantiated while abstract types cannot.
+Subtypes can only be derived from abstract types. Concrete types are final and cannot serve as supertypes.
+This may seem restrictive and somewhat unusual to someone with a background in traditional [class-based object-oriented (CBOO)]{.PKeyword custom-style="PKeyword"} languages like Python or C++.
+However, it offers many advantages with only minor disadvantages. 
+While in CBOO languages, structure as well as behavior are inherited from supertypes to subtypes, in Julia only behavior is inherited, and composition is embraced over the inheritance of structure.
+This avoids various limitations of CBOO languages and often leads to cleaner code that is easier to understand and has a more transparent structure.
+Admittedly, appreciating the Julian way of programming requires some adjustment of thinking and rewiring of the object-oriented programmer's brain, but it is well worth the effort, especially in the realms of scientific computing.
+
+Julia does not distinguish between object and non-object values, but all values are proper objects with a type, and all types are equally first-class members of Julia's type graph.
+
+::: {custom-style="PCallout"}
+In particular, there is no distinction between primitive types and composite types like in C++ or Java, where instances of the former are referred to as _variables_ and instances of the latter as _objects_, and both are not created equal, one with the `new` keyword and one without.
+In Julia, all values are objects.
+Therefore Julia does not make a distinction between _variables_ and _references_.
+:::
+
+After this short excursion into type set theory that allowed us to perform a basic characterization of Julia's type system, we will now learn how to make use of types in practice.
+
+
+## Working with types
+
+Julia does not require to specify the type of a value associated with some variable; thus by default values that are assigned to variables can be of any type.
+A lot of useful Julia code can be written without ever worrying about types.
+Still, sometimes restricting types is required, e.g., to utilize Julia's multiple-dispatch mechanism or to aid the compiler in producing performant code.
+Other good reasons for explicitly specifying or restricting types include increasing expressiveness, improving code readability, catching programmer errors, and confirming that a program works correctly, thus ultimately increasing robustness.
+Typically, it is a good idea to start by writing general code that restricts types as little as possible or not at all and then gradually introduce type annotations where necessary.
+
+To annotate types, Julia provides the `::` operator, which is followed by a type, e.g.,
+```{julia}
+global x::Float64
+```
+This forces the value referenced by `x` to be of type `Float64`.
+If the variable is assigned a value of a different type, Julia uses the `convert` command to perform an appropriate type conversion:
+```{julia}
+x = 1
+x
+```
+The inner workings of this mechanism will be described in [Chapters 5]{.PItalics custom-style="PItalics"}.
+
+::: {custom-style="PCallout"}
+Type annotations for global variables as above are only supported since Julia v1.8.
+:::
+
+If a concrete type is specified, the value must be an instance of this very type.
+If an abstract type is specified, it suffices for the value to be an instance of any subtype of that type, e.g.,
+```{julia}
+y::Real = 1.0
+```
+The type of `y` is `Float64`, as is verified by the `typeof` function:
+```{julia}
+typeof(y)
+```
+The `isa` function confirms that the type of the value referenced by `y` is indeed a subtype of `Real`:
+```{julia}
+isa(y, Real)
+```
+If an automatic conversion is not possible, an error is thrown:
+```{julia}
+#| error: true
+z::Int64 = 1.5
+```
+Note, however, that the following assignment works without problems:
+```{julia}
+z::Int64 = 1.0
+z
+```
+The value `1.0` can be truncated to an integer value without any loss of information.
+
+::: {.content-visible unless-format="docx"}
+::: {custom-style="PCallout"}
+When the `::` operator is appended to a variable on the left-hand side of an assignment or as part of a global or local declaration, it restricts the variable to always refer to a value of the specified type, very much like a type declaration in an explicitly-typed language such as C.
+This feature helps avoid type unstable code that could occur if an assignment to a variable changes its type unexpectedly, which would be detrimental to performance.
+:::
+:::
+
+Type declarations can not only be attached to variable declarations but also to method definitions.
+In the following example, the return type of `relu` is declared to be `Float64`:
+```{julia}
+function relu(x)::Float64
+    if x ≤ 0
+        return 0
+    else
+        return x
+    end
+end
+```
+This enforces that the returned value is always converted to `Float64`:
+```{julia}
+relu(1)
+```
+```{julia}
+typeof(relu(1))
+```
+
+In Julia, every expression returns a value, every function, and also every assignment. 
+For example, the following assignment returns the value `3`:
+```{julia}
+z = 3
+```
+This implies that every expression is associated with a return type.
+When the `::` operator is appended to an expression, its return value is asserted as an instance of the subsequent type.
+If the type assertion fails, an exception is thrown:
+```{julia}
+#| error: true
+(1+2)::Float64
+```
+If the assertion passes, the value of the expression on the left is returned:
+```{julia}
+(1+2)::Int64
+```
+This syntax provides a concise way of applying type assertions on the return type of any expression.
+
+
+## Different kinds of types
+
+Julia's type system knows two fundamental kinds of types: abstract and concrete types; and there are two kinds of concrete types: [primitive]{.PKeyword custom-style="PKeyword"} and [composite]{.PKeyword custom-style="PKeyword"} types.
+We will now discuss the various types, starting with abstract, primitive, and composite types, followed by special cases like [singletons]{.PKeyword custom-style="PKeyword"} and mutable composite types.
+
+
+### Abstract types
+
+Hierarchies of abstract types provide the backbone of Julia's programming model.
+They describe relations between concrete types and provide a context for them to fit in.
+They allow implementing methods that apply to a whole group of types instead of just one type alone and separate behavior from implementation.
+A typical design pattern in Julia defines an interface for an abstract type that encodes a desired behavior.
+The actual implementation of such an interface typically happens on all levels of a type hierarchy.
+If a piece of code makes sense for a group of types, it is implemented for the common supertype of those types.
+If a piece of code only makes sense for a specific concrete type, it is implemented for this type only.
+Even if a piece of code makes sense for several types, a type-specific implementation can be added to leverage the characteristics of the respective type for efficiency.
+
+New abstract types are introduced with the `abstract type` keyword followed by the name of the new type.
+For example, a new abstract type `MyAbstractType` can be defined by:
+```{julia}
+abstract type MyAbstractType end
+```
+Optionally, the name of the type can be followed by `<:` and an existing abstract type: 
+```{julia}
+abstract type MyAbstractSubtype <: MyAbstractType end
+```
+This makes `MyAbstractSubtype` a _subtype_ of the parent type or _supertype_ `MyAbstractType`.
+If no supertype is explicitly specified, the default supertype is `Any`, which is at the top of Julia's type graph.
+Therefore, all types are subtypes of `Any` and all objects are instances thereof.
+
+The `<:` operator generally means "is a subtype of".
+It is not only used in type declarations but also in expressions, where it acts as a subtype operator.
+It returns true when its left operand is a subtype of its right operand:
+```{julia}
+Integer <: Number
+```
+```{julia}
+String <: Number
+```
+Note that all types are considered a subtype of themselves, both abstract and concrete types:
+```{julia}
+Number <: Number
+```
+```{julia}
+Float64 <: Float64
+```
+
+The supertype of a type can also be explicitly identified with the `supertype` function:
+```{julia}
+supertype(Float64)
+```
+```{julia}
+supertype(AbstractFloat)
+```
+```{julia}
+supertype(Real)
+```
+
+In order to get an idea about the aforementioned type hierarchies, let us consider Julia's native number types.
+In the previous chapter, we encountered several concrete number types:
+
+- `Int8`, `Int16`, `Int32`, `Int64`, and `Int128` for signed integers,
+- `UInt8`, `UInt16`, `UInt32`, `UInt64`, and `UInt128` for unsigned integers,
+- `Float16`, `Float32`, and `Float64` for floating-point numbers.
+
+While the different number types in each group have different lengths, they all represent the same kind of data, and we expect the members of each group to behave the same.
+We also expect a piece of code to make sense for all group members as long as the behavior it implements is not explicitly dependent on the bit length of the type.
+Therefore all signed integers share a common supertype, `Signed`, while all unsigned integers share a common supertype, `Unsigned`.
+This allows to implement methods that are the same for all signed integers to work on arguments of type `Signed`, while the corresponding methods for unsigned integers work on arguments of type `Unsigned`.
+
+To a lesser but still large extent, we expect signed and unsigned integers to behave the same.
+That is why both, `Signed` and `Unsigned`, have a common supertype `Integer`.
+Behavior whose implementation is identical to signed and unsigned integers can thus be implemented in a common method that accepts arguments of type `Integer`.
+
+Similarly, all float types share a common supertype `AbstractFloat`, and both `Integer` and `AbstractFloat` share a common supertype `Real`, which again is a subtype of `Number`.
+The `Number` type, on the other hand, derives from `Any` and is thus the most general number type in Julia.
+The part of Julia's numerical type hierarchy that we just discussed can be summarized as follows:
+```julia
+abstract type Number end
+abstract type Real     <: Number end
+abstract type AbstractFloat <: Real end
+abstract type Integer  <: Real end
+abstract type Signed   <: Integer end
+abstract type Unsigned <: Integer end
+```
+Some other types we did not list are `Rational`, another subtype of `Real`, and `Complex`, a subtype of `Number`. 
+
+
+### Primitive types
+
+Julia knows two kinds of concrete types: primitive types and composite types.
+Primitive types only consist of bits.
+Examples are integers and floating-point values, bools and characters.
+Primitive types are the basic building blocks for composite types.
+
+In Julia, all primitive types are declared natively in Julia itself, and it is straightforward to define custom primitive types using the following syntax:
+```{julia}
+#| eval: false
+primitive type «name» «bits» end
+primitive type «name» <: «supertype» «bits» end
+```
+With the first line, the new type will be a subtype of `Any`, while in the second line, a supertype is explicitly specified.
+The storage required by the type is specified in bits, although currently only multiples of 8 are supported.
+Consider the type declaration in the following example:
+```{julia}
+primitive type Float128 <: AbstractFloat 128 end
+```
+
+This defines a custom 128-bit type that is a subtype of `AbstractFloat`.
+
+::: {custom-style="PCallout"}
+It is rarely ever necessary to implement a custom primitive type.
+If some special behavior is required, it is usually better to wrap one of the standard types.
+:::
+
+
+### Composite types
+
+Composite types are collections of named fields whose instances can be treated as single values.
+Each field is an instance of either a primitive or another composite type.
+In other languages, composite types are called structs, records, or objects.
+
+New composite types are introduced with the `struct` keyword followed by the name of the new type and a list of field names.
+For example, a new composite type `FooBar` with two fields, `foo` and `bar`, can be defined by:
+```{julia}
+struct FooBar
+    foo
+    bar
+end
+```
+Optionally, the name of the type can be followed by `<:` and an abstract type:
+```{julia}
+struct SubFooBar <: MyAbstractType
+    foo
+    bar
+end
+```
+This makes `SubFooBar` a subtype of `MyAbstractType`.
+If no supertype is explicitly specified, the new type becomes a subtype of `Any`.
+The types of fields can be annotated with the `::` operator, e.g.,
+```{julia}
+struct TypedFooBar
+    foo::Real
+    bar::Float64
+end
+```
+Both concrete types and abstract types can be used.
+In the latter case, the field can hold values of all concrete subtypes of the specified abstract type, e.g., the field `foo` in `TypedFooBar` can hold all kinds of real numbers, including `Int8`, `Int16`, and other ints, but also `Float32`, `Float64`, and `Rational`.
+In contrast, the field `bar` is constrained only to hold values of type `Float64`.
+In the absence of type annotations, the type of a field defaults to `Any`.
+Therefore such fields can hold values of any type.
+
+To create an instance of a composite type, we have to call its [constructor]{.PKeyword custom-style="PKeyword"} by applying the type name like a function and passing the values of the fields as arguments.
+For example, an instance of the `FooBar` type can be created by
+```{julia}
+fb = FooBar("Hello", 42)
+```
+Julia generates two [default constructors]{.PKeyword custom-style="PKeyword"} automatically: one that accepts arguments that match the field types exactly and one that accepts any kind of arguments and tries to convert them to the types of the fields.
+
+Our `FooBar` has no type constraints so we can initialize both fields with any value.
+However, if we try to instantiate the `TypedFooBar` type, the values for `foo` and `bar` must be convertible to any subtype of `Real` and `Float64`, respectively.
+If the given values are not convertible without losing information, an exception is raised:
+```{julia}
+#| error: true
+TypedFooBar(4 + 2im, 42)
+```
+The first argument is a `Complex` that cannot be converted into a `Real` unless the imaginary part is zero:
+```{julia}
+TypedFooBar(4 + 0im, 42)
+```
+In the following example, the first argument is a `Rational`, which is a subtype of `Real` and thus will not be converted.
+The second argument is an `Int`, which is converted to `Float64` according to the type declaration:
+```{julia}
+TypedFooBar(4 // 2, 42)
+```
+The next chapter, [Methods and Multiple Dispatch]{.PItalics custom-style="PItalics"}, will discuss constructors in more detail.
+
+The values of the fields of a composite type can be accessed using the `.` notation.
+For example, the `fb` variable references a value of type `FooBar`, which has two fields, `foo` and `bar`, that can be accessed as follows:
+```{julia}
+fb.foo
+```
+```{julia}
+fb.bar
+```
+If a field is accessed, that does not exist, an exception is raised:
+```{julia}
+#| error: true
+fb.baz
+```
+The field names of a type can be retrieved by the `fieldnames` function:
+```{julia}
+fieldnames(FooBar)
+```
+Note that this function has to be applied to a type, not to an instance:
+```{julia}
+#| error: true
+fieldnames(fb)
+```
+If we want to retrieve the fields of a type from an instance, we have to use `fieldnames` in conjunction with the `typeof` function, e.g., `fieldnames(typeof(fb))`.
+
+
+### Immutability
+
+The fields of composite types cannot be modified once an instance is created: they are immutable.
+Julia also supports mutable composite objects, which can be declared with the keyword `mutable struct`. 
+Before we discuss these in more detail in the next section, let us first understand why the default behavior for fields is to be immutable, as it may seem odd at first.
+
+Some advantages are compiler-related: immutable objects may be represented more efficiently in memory, and sometimes memory allocation can be avoided altogether. 
+Another advantage is related to program safety: if some fields need to satisfy invariants, these can be checked in a custom constructor for a type.
+However, they can only be guaranteed after instantiation if a type is immutable.
+Otherwise, the value of the corresponding field could be changed after the fact in a way that violates the invariants enforced by the constructor.
+
+Some essential properties of immutability in Julia are important to understand.
+Obviously, the value of an immutable type cannot be modified.
+If we try to do so, an exception will be raised.
+We can see this when trying to modify one of the fields of an instance of our `FooBar` type:
+```{julia}
+#| error: true
+fb.foo = 1
+```
+This has various consequences.
+It implies that values of primitive types cannot be changed once they are set.
+Therefore, there are no in-place operations on primitive types, and even operations like `x += 3` will allocate a new instance of some number type and re-assign the variable `x` to reference that new value instead of overwriting the value originally referenced by `x`.
+
+For composite types, it implies that their fields' values will never change once instantiated.
+Fields that are primitive types will always hold the same sequence of bits.
+Fields that are composite types will always reference the same composite value.
+
+A vital detail is that the immutability of a composite type is not passed on to its fields.
+If a field of an immutable composite type references a mutable type, then its values remain mutable.
+However, as the field itself is immutable, the reference cannot be changed, so that once set the field will always reference the same value.
+For example, consider an immutable type that has a field referencing an array.
+After initialization, the field will always reference the same array, but the elements of the array can be changed nonetheless.
+
+Immutability only applies to the values of the fields of the immutable object.
+Its fields cannot be changed to reference different values, e.g., if an immutable object is created with a field that holds an array, this field will always reference the same array.
+Still, we can change the elements of the array as long as the array itself is mutable.
+
+
+### Mutable composite types
+
+As sometimes immutable structs are too much of a restriction, Julia also allows declaring a composite type to be mutable by using the `mutable struct` keyword instead of `struct`:
+```{julia}
+mutable struct MutableFooBar
+    foo::Real
+    bar::Float64
+end
+```
+Instances of a `mutable struct` can be modified:
+```{julia}
+mfb = MutableFooBar(4//2, 42)
+```
+```{julia}
+mfb.foo = 23
+mfb
+```
+
+The `foo` field of `mfb` is first initialized to `42` and then changed to `23`.
+Note that this does not change the bit content of the value referenced by `foo` from `42` to `23`, but instead a new number value is created and `foo` is changed to refer to this new value.
+
+::: {custom-style="PCallout"}
+Since Julia v1.8 it is possible to set individual fields of a mutable struct to be immutable or constant by preceding the field name with `const`.
+:::
+
+This allows us to adapt the `FooBar` type to have one mutable field `foo` and one immutable field `bar`:
+```{julia}
+#| error: true
+mutable struct PartiallyMutableFooBar
+    foo::Real
+    const bar::Float64
+end
+
+pmfb = PartiallyMutableFooBar(4//2, 42)
+pmfb.foo = 23
+pmfb.bar = 23
+```
+
+The mutability of fields aside, mutable types behave exactly the same as immutable types, at least from the programmer's perspective.
+Under the hood, however, Julia can treat instances of mutable and immutable types quite differently.
+This concerns allocations on the heap vs. allocations on the stack or the identification of objects by their address vs. identification by their value.
+These differences allow the compiler to apply certain optimizations in the case of immutable types that are not possible for mutable types.
+
+::: {.content-visible unless-format="docx"}
+For example, sufficiently small immutable values like single numbers are usually allocated on the stack, while mutable values are allocated on the heap.
+Mutable objects can only be reliably identified by their address as they might hold different values over time.
+Therefore they must have stable memory addresses and are passed to functions via reference.
+Immutable objects, on the other hand, are associated with specific field values, and the field values alone are required to identify the object uniquely.
+These differences allow the compiler to freely copy immutable values since it is impossible to distinguish between the original object and a copy programmatically.
+::: 
+
+
+### Singletons
+
+Julia implements some special behavior for a special kind of composite type, namely for immutable composite types with no fields.
+Such types are called [singletons]{.PKeyword custom-style="PKeyword"}.
+They are declared like usual immutable types, without any special keyword, but just with a lack of fields:
+```{julia}
+struct NoFields end
+```
+Of course, such types can also be the subtype of some abstract type.
+
+What is special about singletons, is that there can be only one instance of such types.
+The `===` operator can be used to confirm that the two instances of `NoFields` are actually one and the same:
+```{julia}
+NoFields() === NoFields()
+```
+Without the discussion of the next chapter, [Methods and Multiple Dispatch]{.PItalics custom-style="PItalics"}, it is difficult to see the utility of the singleton type construct. 
+In short, it allows for specializing function behavior on a type that is given as an explicit argument rather than implied by the types of the other arguments.
+We will return to this topic in [Chapters 3]{.PItalics custom-style="PItalics"} and [5]{.PItalics custom-style="PItalics"} as this is a common design pattern in Julia.
+
+
+### Type aliases
+
+A type alias, i.e., a new name for an already expressible type, can be declared by a simple assignment statement:
+```{julia}
+const FB = FooBar
+```
+After such a definition, the alias can be used in the same way as the original type, e.g., to create an instance, we can call `FB` as a constructor:
+```{julia}
+fb = FB(4 // 2, 42)
+```
+Internally, Julia uses this feature to define the `Int` and `UInt` aliases, which refer to either `Int32` or `Int64` and `UInt32` or `UInt64`, respectively, depending on the native pointer size of the system.
+
+
+## Parametric types
+
+Parametric types are one of the most powerful features of Julia's type system.
+As the name suggests, these are types that depend on parameters in a similar way to templates in C++ or generics in Python.
+Declaring a parametric type introduces not only one new type but a whole family of new types, namely one for each possible combination of parameter values.
+All declared types (abstract, primitive, composite) can be parameterized by any type or a value of any bits type.
+This is a handy feature for generic programming as well as for performance.
+
+All declared types (abstract, primitive, composite) can be amended by type parameters.
+Parametric types are defined in a very similar way as non-parametric types.
+The only difference is that the type name is followed by curly braces that contain one or more type parameters.
+We will discuss this in more detail for all declared types, starting with parametric composite types, as these are the most often used kind of parametric types.
+
+
+### Parametric composite types
+
+A parametric composite type, depending on the parameter `T`, is declared by:
+```{julia}
+struct ParametricFooBar{T}
+    foo::T
+    bar::T
+end
+```
+This declaration states that the type has two fields, `foo` and `bar`, which are both of type `T` (cf. type annotations earlier in this chapter).
+The parametric type `ParametricFooBar{T}` can be turned into a concrete type by specifying a value for `T`, for example `ParametricFooBar{Float64}`.
+This type can be used like any other composite type, e.g., it can be instantiated in the usual way by:
+```{julia}
+ParametricFooBar{Float64}(23, 42)
+```
+The type `ParametricFooBar{Float64}` is equivalent to the `ParametricFooBar` type with `T` replaced by `Float64`, i.e., it is equivalent to
+```{julia}
+struct FooBarF64
+    foo::Float64
+    bar::Float64
+end
+```
+By inserting different values for `T`, such as `Float32`, `Int`, `AbstractString`, etc., we obtain different concrete types whose fields `foo` and `bar` are of the respective type.
+Thus the declaration of `ParametricFooBar{T}` does not define only one type but an infinite number of types.
+
+Julia provides two default constructors for parametric composite types: one that expects the type parameters to be explicitly specified and one that tries to deduce the type parameters from the types of the arguments.
+If we instantiate a parametric type like in the example above, that is, with all type parameters explicitly given, we are effectively instantiating a concrete type,  `ParametricFooBar{Float64}`, and thus the default constructor works in the very same way as for concrete composite types: exactly one argument must be supplied for each field, and if the arguments' types do not match the prescribed types of the fields, Julia tries to convert them.
+
+Often it is not necessary to provide values for the parameters explicitly as they can be deduced from the types of the arguments.
+Therefore the name of the parametric type without values for the parameters can also be used as a constructor as long as the values of the type parameters can be determined unambiguously.
+Thus, an instance of `ParametricFooBar{Float64}` can also created by:
+```{julia}
+ParametricFooBar(23., 42.)
+```
+Note that providing arguments of different number types does not allow for an unambiguous determination of the type parameter `T`:
+```{julia}
+#| error: true
+ParametricFooBar(23, 42.)
+```
+However, custom constructor methods that allow handling such cases appropriately can be defined as discussed in [Chapter 3]{.PItalics custom-style="PItalics"}.
+
+Often it may not make sense for type parameters to take any possible type but only a restricted set of types, e.g., a type may only be a subtype of `Number` but not an `AbstractString` or anything else.
+In such situations, the range of the parameter `T` can be constrained by using the `<:` syntax followed by a type:
+```{julia}
+struct RealFooBar{T <: Real}
+    foo::T
+    bar::T
+end
+```
+With this restriction in place, we can still create instances with real field values but not e.g. with complex values:
+```{julia}
+RealFooBar(23., 42.)
+```
+```{julia}
+#| error: true
+RealFooBar(23 + 23im, 42 + 42im)
+```
+Type parameters are evaluated from left to right and can depend on the preceding parameters:
+```{julia}
+struct ArrayFooBar{T <: Number, A <: AbstractArray{T}}
+    x::A
+end
+```
+This type has a field `x` that holds an array, whose type is a type parameter.
+In addition, the element type of the array is also a type parameter and restricted to be some kind of number type.
+
+This mostly concludes the basic discussion of parametric types.
+Although we will briefly discuss parametric abstract and primitive types in the following two sections, everything works pretty much the same as with composite types.
+
+
+### Parametric abstract types
+
+A parametric abstract type, depending on the parameter `T`, is declared by:
+```{julia}
+abstract type MyParametricAbstractType{T} end
+```
+As with composite types, this does not only declare one abstract type but a whole collection of abstract types.
+We obtain a distinct abstract type `MyParametricAbstractType{T}` for each value of `T`.
+
+The range of type parameters for abstract types can be constrained in the same way as for composite types:
+```{julia}
+abstract type MyRealAbstractType{T <: Real} end
+```
+With this, concrete abstract types can only be formed when using appropriate parameter values:
+```{julia}
+MyRealAbstractType{Real}
+```
+```{julia}
+MyRealAbstractType{Float64}
+```
+```{julia}
+#| error: true
+MyRealAbstractType{AbstractString}
+```
+The last example raises an exception as `AbstractString` is not a subtype of `Real`.
+
+
+### Parametric primitive types
+
+Even primitive types can be declared parametrically, although this is probably a feature most scientific software developers will never use.
+Julia uses this feature to represent pointers as follows:
+```{julia}
+#| eval: false
+# 32-bit system:
+primitive type Ptr{T} 32 end
+
+# 64-bit system:
+primitive type Ptr{T} 64 end
+```
+In contrast to typical parametric composite types, the type parameter `T` is not used in the definition of the type itself.
+After all, primitive types do not have fields whose type could be annotated.
+Instead, it is used as a tag that denotes what kind of object the pointer refers to, e.g., to distinguish a pointer to a `Float64` variable, which would be of type `Ptr{Float64}`, and a pointer to an `Int64` variable, which would be of type `Ptr{Int64}`, even though both pointers have identical representations.
+
+This concludes the discussion of parametric types.
+In the next section, we discuss how different sets of concrete and parametric types relate to each other.
+
+
+## Type set theory
+
+When considering type hierarchies in Julia, there exist a few potential pitfalls, especially with parametric types, and it is crucial to understand them.
+We will thus analyze which types constitute subtypes of other types and which do not, although at first glance, one might expect them to.
+
+We will discuss these issues based on Julia's abstract array type, `AbstractArray{T,N}`, and its default concrete array type, `Array{T,N} <: DenseArray{T,N} <: AbstractArray{T,N}`.
+Both have two parameters, `T` denoting the type of the array elements and `N` denoting the dimension of an array.
+
+The parametric types `Array` and `AbstractArray` are valid type objects whose subtypes contain all types that can be obtained by specifying the parameters `T` and `N`.
+For example, upon fixing the element type `T` to `Float64` and the dimension `N` to `1`, we can verify that the following intuitive subtype relationships hold in practice:
+```{julia}
+AbstractArray{Float64,1} <: AbstractArray
+```
+```{julia}
+Array{Float64,1} <: Array
+```
+```{julia}
+Array{Float64,1} <: AbstractArray
+```
+
+Concrete types with different values of the parameters are never subtypes of each other, not even if the parameter of one subtype is itself a subtype of the parameter of the other subtype, e.g., even though we have `Float64 <: Real` the following expressions are not true:
+```{julia}
+AbstractArray{Float64,1} <: AbstractArray{Real,1}
+```
+```{julia}
+Array{Float64,1} <: Array{Real,1}
+```
+A concrete parametric subtype of an abstract parametric type can only be considered a proper subtype if the type parameters of the two types match:
+```{julia}
+Array{Float64,1} <: AbstractArray{Float64,1}
+```
+As a consequence, some care is needed when annotating method arguments.
+If, for example, we restrict an argument to be of type `Array{Real,1}` the method cannot be applied to values of type `Array{Float64,1}` as it is not a subtype of `Array{Real,1}`:
+```{julia}
+#| error: true
+printreal(a::Array{Real,1}) = println(a)
+printreal(Array{Float64,1}())
+```
+This problem can be solved by using the notation `Array{<:Real,1}`, which represents the set of all concrete `Array` types with parameter `N = 1` and parameter `T` a subtype of `Real`:
+```{julia}
+AbstractArray{Float64,1} <: AbstractArray{<:Real,1}
+```
+```{julia}
+Array{Float64,1} <: Array{<:Real,1}
+```
+```{julia}
+Array{Float64,1} <: AbstractArray{<:Real,1}
+```
+Thus we can adapt the above method as follows in order to make it work:
+```{julia}
+printsubofreal(a::Array{<:Real,1}) = println(a)
+printsubofreal(Array{Float64,1}())
+```
+The `printsubofreal` accepts all one-dimensional arrays whose element type is a subtype of `Real`.
+
+This concludes the discussion of basic type set theory, which hopefully shed some light on the relationships between concrete types, parametric types and abstract types.
+In the next section, we discuss some technical details on the inner workings of abstract types.
+
+
+## UnionAll types
+
+The type of parametric types like `Array` cannot be a normal `DataType`.
+On the one hand, we have just seen that parametric types act as supertypes for all their instances, but a `DataType` is final and cannot be a supertype for any other type.
+On the other hand, without specifying values for all type parameters, a parametric type cannot be instantiated and thus does not constitute a concrete type.
+This suggests that parametric types are of a different type, namely a `UnionAll` type.
+For each parameter, such a type represents the union of all possible types originating from a parametric type by applying all permissible values of the parameter.
+For parametric types with more than one parameter, this representation is constructed in a nested manner.
+
+Let us illuminate this in more detail with two examples: the `Ptr{T}` type as a parametric type with just one parameter and the `Array{T,N}` type as an example with multiple parameters.
+Above we just wrote `Ptr` and `Array` for the respective `UnionAll` types.
+More accurately, these types are expressed with the `where` keyword as `Ptr{T} where T` and `Array{T,N} where N where T`, where each `where` introduces a type parameter.
+
+It is possible to restrict type parameters with subtype relations.
+For example, `Ptr{T} where T <: Number` is a pointer that can only be associated with objects that are some kind of `Number`.
+The same type can be expressed more conveniently by `Ptr{<:Number}`.
+If a type has multiple parameters, they can be restricted individually.
+For example, `Array{T} where T <: Number` and `Array{<:Number}` denote an array that is restricted to hold numbers but whose dimension is still arbitrary.
+
+If we specialize a parametric type, for example `Array{T,N}` to `Array{Float64,2}`, we are first substituting `T` for `Float64` and then `N` for `2`.
+Remember that `Array{T,N}` is a short form for `Array{T,N} where N where T`.
+Thus we first substitute the outermost type parameter, which is `T`, resulting in another `UnionAll` type which depends only on one type parameter, and then we substitute the remaining type parameter, which is the inner parameter `N` in the original parametric type.
+Therefore the syntax `Array{Float64,2}` is equivalent to `Array{Float64}{2}`, which also explains why it is possible to partially instantiate a type, e.g., `Array{Float64}`, where the first type parameter is fixed but the second parameter is still free.
+We can also just fix the second parameter, resorting to the `where` syntax, as in `Array{T,1} where T`, which refers to all one-dimensional arrays with arbitrary element type `T`.
+Of course, this can also be combined with a type restriction, e.g., `Array{T,1} where T <: Number` and `Array{<:Number,1}` denote all one-dimensional arrays whose elements are of some subtype of `Number`.
+
+It is often useful to assign names to partially specialized parametric types.
+This can be achieved by a simple assignment.
+For example, Julia defines the `Vector{T}` type as follows:
+```{julia}
+#| eval: false
+Vector{T} = Array{T,1}
+```
+This is equivalent to
+```{julia}
+#| eval: false
+const Vector = Array{T,1} where T
+```
+With this definition, writing `Vector{Float64}` is equivalent to `Array{Float64,1}`.
+The `Vector` type represents all one-dimensional `Array` types.
+
+The `UnionAll` type is only one special type in Julia's type system.
+Another family of important types is type unions.
+
+
+## Type unions
+
+Type unions are special abstract types whose possible values are all instances of any of its argument types.
+A type union can be constructed with the `Union` keyword:
+```{julia}
+const IntOrFloat = Union{Int64,Float64}
+```
+This type can hold either integer or float values:
+```{julia}
+42 :: IntOrFloat
+```
+```{julia}
+42.0 :: IntOrFloat
+```
+If we try to assign a different value to an instance of `IntOrFloat`, an exception is raised:
+```{julia}
+#| error: true
+42 + 23im :: IntOrFloat
+```
+
+In many programming languages, type unions are a construct used only internally by the compiler for reasoning about types.
+In contrast to most other languages, Julia exposes this construct to the programmer.
+
+A typical design pattern in Julia, based on the `Union` type, is annotating optional fields with `Union{T, Nothing}`.
+The type `Nothing` is a singleton type, thus it has only one instance, namely the `nothing` object.
+It serves a similar purpose as the `void` or `null` keywords in languages such as C or C++.
+However, in contrast to many other languages, `nothing` in Julia is not just a keyword but an actual object, that is an instance of the `Nothing` type.
+If a field is annotated by the type union `Union{T, Nothing}`, where `T` is often restricted to be a subtype of some other type, e.g., `Union{T, Nothing} where {T <: AbstractArray}`, it can hold either a value of type `T` or `nothing`.
+
+The singleton type `Missing` and its instance `missing` can be used similarly to indicate that a field does not have a value.
+Although fields and variables can be left uninitialized, accessing them raises an exception immediately.
+Thus, setting them to `nothing` or `missing` is often preferred.
+As both types behave quite differently, the choice of which to use depends on the context.
+For example, adding a number to `nothing` raises an error, while adding a number to `missing` results in `missing`:
+```{julia}
+#| error: true
+nothing + 2
+```
+```{julia}
+missing + 2
+```
+
+This concludes the discussion of special types in Julia's type system.
+We will close this chapter with an overview of how to obtain information about values and their types.
+
+
+## Type introspection
+
+In [Section 2.3]{.PItalics custom-style="PItalics"}, [Working with types]{.PItalics custom-style="PItalics"}, we already encountered some of the means Julia provides for type introspection, such as the `typeof` and `isa` functions.
+As in Julia, everything is an object, including types, they can be passed to functions as arguments just like anything else.
+For reference, we briefly summarize some of Julia's most important introspection functions in one place.
+
+The `isa` function is applied to a value and a type.
+It returns `true` if the value is of the given type and `false` else:
+```{julia}
+isa(42, Int)
+```
+```{julia}
+isa(42, Float64)
+```
+
+The `typeof` function is applied to a value and returns its type:
+```{julia}
+typeof(42)
+```
+Since types are objects, they also have types:
+```{julia}
+typeof(Int)
+```
+
+All declared types (abstract, primitive, composite) are represented by the `DataType` type, which is a composite type that stores the kind of the type, its size, the storage layout, the field names and parameters if present, and is an instance of itself:
+```{julia}
+typeof(DataType)
+```
+
+The `supertype` function is applied to a type and returns its supertype:
+```{julia}
+supertype(Float64)
+```
+```{julia}
+supertype(Number)
+```
+```{julia}
+supertype(Any)
+```
+The `supertype` function can only be applied to declared types, that is, instances of `DataType`, but not e.g. to type unions such as `Union{Float32,Float64}`, even if they share a common supertype:
+```{julia}
+#| error: true
+supertype(Union{Float32,Float64})
+```
+
+The `subtypes` function does exactly the opposite of the `supertype` function: it is applied to an abstract type and returns all its subtypes:
+```{julia}
+subtypes(Real)
+```
+```{julia}
+subtypes(AbstractFloat)
+```
+
+The `<:` operator checks whether the operand on the left is a subtype of the operand on the right:
+```{julia}
+Number <: Any
+```
+```{julia}
+Any <: Number
+```
+
+Julia provides several functions for examining a given type.
+The functions `isabstracttype`, `isprimitivetype`, `issingletontype`, and `isstructtype` can be used to check the kind of a type:
+```{julia}
+isabstracttype(Number)
+```
+```{julia}
+isprimitivetype(Int)
+```
+```{julia}
+issingletontype(NoFields)
+```
+```{julia}
+isstructtype(FooBar)
+```
+
+The functions `ismutabletype` and `ismutable` can be used to check if a type or a value, respectively, is immutable:
+```{julia}
+ismutabletype(Int)
+```
+```{julia}
+ismutable(42)
+```
+
+The `fieldnames` function is applied to a type and returns the names of all its fields:
+```{julia}
+fieldnames(FooBar)
+```
+Similarly, the `fieldtypes` function is applied to a type and returns the types of all its fields:
+```{julia}
+fieldtypes(FooBar)
+```
+```{julia}
+fieldtypes(TypedFooBar)
+```
+Several more functions like this exist for examining a composite type's inner workings.
+However, their use is slightly more intricate, so the reader is referred to the Julia Manual for more details on those.
+
+
+## Summary
+
+In this chapter, we discussed Julia's type system, how to define abstract and concrete types, and how parametric types can be used to define whole families of types.
+We have glimpsed at the construction of type hierarchies by analyzing parts of Julia's number and array types.
+
+We have learned how the different kinds of types interact and relate to each other and discussed some of the intricacies of hierarchies of parametric types.
+
+The type system is at the core of what makes Julia unique. Together with the multiple dispatch paradigm, which will be discussed in the next chapter, it is responsible for the sublime productivity and expressivity of the language.
+
+It's all in the types...
