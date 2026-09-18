@@ -1,13 +1,75 @@
+# --- macOS cruft ---
+.DS_Store
+._*
+Icon?
+
+# --- agent configuration (kept out of every repo by decision 3/20) ---
+.claude/
+
+# --- editor configuration ---
+.vscode/
+
+# --- LaTeX intermediates ---
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.xdv
+tmp-latex/
+.texpadtmp/
+
+# --- Quarto / build output ---
+.quarto/
+_freeze/
+src/_freeze/
+_book/
+_site/
+build/
+_build/
+
+# --- notebook / Python cruft ---
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- third-party literature ---
+# Other people's papers and books are Library/ content, not manuscript source.
+# They stay on disk and in the Nextcloud mirror; they are not tracked here,
+# so this repository's history stays text-only.
+Material/
+material/
+
+# --- built documents ---
+# Regenerable from source; a tracked PDF turns every rebuild into a diff.
+book.pdf
+
+# --- PDFs ---
+# Other people's papers, and built or exported documents. They stay on disk and
+# in the Nextcloud mirror; git here tracks text. Books/PlasmaVI is the exception
+# — its PDFs are figures, i.e. manuscript source — and has its own .gitignore.
+*.pdf
+
+# --- Jupyter notebooks ---
+# Committed notebooks carry megabytes of embedded output and diff as one blob.
+# These are pending a refactor; see ~/Research/Tasks/.
+*.ipynb
+
+# --- repository-specific ---
 .luarc.json
-.quarto
-.vscode
-_book
 _chapters
-_site
-build
 packt
 Manifest.toml
-
 /src/images/*.png
-
-/.luarc.json
