@@ -1,0 +1,7 @@
+# Introduction
+
+
+
+This book gathers my own experience with Julia but it also collects many creative ideas, problem solutions and design patterns from the Julia community, its Discourse channel, and countless personal blogs.
+
+
